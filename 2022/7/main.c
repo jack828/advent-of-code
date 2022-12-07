@@ -67,16 +67,12 @@ int main() {
 
   char chunk[LINE_MAX];
 
-  bool isListingFiles = false;
-
   struct FS *cwd = &filesystem;
 
   while (fgets(chunk, sizeof(chunk), fp) != NULL) {
-    fputs("line: ", stdout);
     fputs(chunk, stdout);
 
     if (strcmp(chunk, "$ cd /\n") == 0) {
-      fputs("init\n", stdout);
       strcpy(filesystem.name, "/");
       filesystem.size = 0;
       filesystem.type = DIRECTORY_T;
@@ -88,14 +84,11 @@ int main() {
     if (chunk[0] == '$') {
       // a command
       if (strcmp(chunk, "$ ls\n") == 0) {
-        fputs("CMD: ls", stdout);
         // we can basically ignore this, and assume that every other line
         // that does not begin with $ is the output of `ls`
       } else if (strcmp(chunk, "$ cd ..\n") == 0) {
-        fputs("CMD: cd ..\n", stdout);
         cwd = cwd->parent;
       } else if (strncmp(chunk, "$ cd ", 5) == 0) {
-        fputs("CMD: cd\n", stdout);
         char *token;
         token = strtok(chunk, " "); // $
         token = strtok(NULL, " ");  // cd
@@ -103,12 +96,8 @@ int main() {
         // trim newline off
         token[strlen(token) - 1] = '\0';
         // find the directory in the hierarchy and point cwd to it
-        fprintf(stdout, "# of child dirs %lu\n", cwd->filesystemIndex);
         for (u_int64_t i = 0; i <= cwd->filesystemIndex - 1; i++) {
-          fprintf(stdout, "cmp i: %lu, fs[i]->name: %s, token: \"%s\"\n", i,
-                  cwd->filesystem[i]->name, token);
           if (strcmp(cwd->filesystem[i]->name, token) == 0) {
-            fprintf(stdout, "found dir at index %lu\n", i);
             cwd = cwd->filesystem[i];
             break;
           }
@@ -116,9 +105,7 @@ int main() {
       }
     } else {
       // is files/directories
-      fputs("contents\n", stdout);
       if (strncmp(chunk, "dir", 3) == 0) {
-        fputs("dir\n", stdout);
         struct FS *directory;
         directory = malloc(sizeof(FS));
         char *token;
@@ -138,10 +125,8 @@ int main() {
         file = malloc(sizeof(FS));
         char *token;
         token = strtok(chunk, " ");
-        fprintf(stdout, "token - size: %s\n", token);
         file->size = atoi(token);
         token = strtok(NULL, " ");
-        fprintf(stdout, "token - filename: %s\n", token);
         strncpy(file->name, token, strlen(token) - 1);
         file->type = FILE_T;
         file->parent = cwd;
@@ -157,13 +142,6 @@ int main() {
     }
 
     fputs("\n", stdout);
-  }
-  fprintf(stdout, "filesystem: %s, size %lu\n", filesystem.name,
-          filesystem.size);
-  for (u_int64_t i = 0; i < allIndex; i++) {
-
-    fprintf(stdout, "all: %s, type %d, size %lu\n", all[i]->name, all[i]->type,
-            all[i]->size);
   }
 
   // Print a tree representation of the filesystem
@@ -200,9 +178,6 @@ int main() {
   u_int64_t FS_SIZE = 70000000;
   u_int64_t totalFreeSpace = FS_SIZE - filesystem.size;
   u_int64_t requiredFreeSpace = REQUIRED_SIZE - totalFreeSpace;
-
-  fprintf(stdout, "free space: %lu\n", totalFreeSpace);
-  fprintf(stdout, "required space: %lu\n", requiredFreeSpace);
 
   // Loop through and find the first directory size that passes the limit
   u_int64_t partTwoIndex = allIndex - 1;

@@ -32,4 +32,8 @@ void readInput(const char *file, void (*lineHandler)(char *)) {
   fclose(fp);
 }
 
+int max(int a, int b) {
+  return a > b ? a : b;
+}
+
 #endif

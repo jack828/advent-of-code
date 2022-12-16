@@ -30,7 +30,7 @@ typedef struct INPUT_LINE_LIST {
   struct INPUT_LINE_LIST *next;
 } INPUT_LINE_LIST;
 
-struct INPUT_LINE_LIST input = {};
+struct INPUT_LINE_LIST *input = NULL;
 
 // map coordinate to the grid so we can support a negative index
 int mapco(int coord) { return (HEIGHT / 2) + coord; }
@@ -38,39 +38,39 @@ int unmapco(int coord) { return coord - (HEIGHT / 2); }
 
 int testY = (HEIGHT / 2) + TEST_Y;
 
-void drawSensorArea(int sensorY, int sensorX, int beaconY, int beaconX) {
-  int taxicabDist = abs(sensorY - beaconY) + abs(sensorX - beaconX);
+void drawSensorArea(struct INPUT_LINE_LIST * line) {
+  int taxicabDist = abs(line->sensorY - line->beaconY) + abs(line->sensorX - line->beaconX);
 
-  if (sensorY + taxicabDist > testY) {
+  if (line->sensorY + taxicabDist > testY) {
     for (int y = taxicabDist; y >= 0; y--) {
-      int minX = sensorX - taxicabDist + y;
-      int maxX = sensorX + taxicabDist - y;
-      if (sensorY + y != testY) {
+      int minX = line->sensorX - taxicabDist + y;
+      int maxX = line->sensorX + taxicabDist - y;
+      if (line->sensorY + y != testY) {
         continue;
       }
       for (int x = minX; x <= maxX; x++) {
         testRow[x] = '#';
 #ifdef TEST_MODE
-        if (grid[sensorY + y][x] == 0) {
-          grid[sensorY + y][x] = '#';
+        if (grid[line->sensorY + y][x] == 0) {
+          grid[line->sensorY + y][x] = '#';
         }
 #endif
       }
     }
   }
 
-  if (sensorY - taxicabDist < testY) {
+  if (line->sensorY - taxicabDist < testY) {
     for (int y = taxicabDist; y >= 0; y--) {
-      int minX = sensorX - taxicabDist + y;
-      int maxX = sensorX + taxicabDist - y;
-      if (sensorY - y != testY) {
+      int minX = line->sensorX - taxicabDist + y;
+      int maxX = line->sensorX + taxicabDist - y;
+      if (line->sensorY - y != testY) {
         continue;
       }
       for (int x = minX; x <= maxX; x++) {
         testRow[x] = '#';
 #ifdef TEST_MODE
-        if (grid[sensorY - y][x] == 0) {
-          grid[sensorY - y][x] = '#';
+        if (grid[line->sensorY - y][x] == 0) {
+          grid[line->sensorY - y][x] = '#';
         }
 #endif
       }
@@ -130,9 +130,15 @@ void lineHandler(char *line) {
   grid[mapco(beaconY)][mapco(beaconX)] = 'B';
 #endif
 
-  drawSensorArea(mapco(sensorY), mapco(sensorX), mapco(beaconY),
-                 mapco(beaconX));
-  // fputs("\n", stdout);
+  struct INPUT_LINE_LIST *lineItem = malloc(sizeof(struct INPUT_LINE_LIST));
+
+  lineItem->sensorY = mapco(sensorY);
+  lineItem->sensorX = mapco(sensorX);
+  lineItem->beaconY = mapco(beaconY);
+  lineItem->beaconX = mapco(beaconX);
+  lineItem->next = input;
+
+  input = lineItem;
 }
 
 #ifdef TEST_MODE
@@ -147,9 +153,12 @@ void printGrid() {
 }
 #endif
 
-// void run () {
+void run() {
   // iterate the input lines and then draw drawSensorAreas
-// }
+  for (struct INPUT_LINE_LIST *line = input; line != NULL; line = line->next) {
+    drawSensorArea(line);
+  }
+}
 
 int main() {
 #ifdef TEST_MODE
@@ -157,7 +166,7 @@ int main() {
 #endif
   readInput(__FILE__, lineHandler);
 
-  // run();
+  run();
 
   // TODO why are we off-by-one
   int count = -1;
@@ -185,7 +194,7 @@ int main() {
   for (int y = mapco(0); y < mapco(MAX_COORD); y++) {
     testY = y;
     memset(testRow, 0, sizeof testRow);
-    readInput(__FILE__, lineHandler);
+    run();
 
     for (int i = mapco(0); i < mapco(MAX_COORD); i++) {
 #ifdef TEST_MODE
@@ -206,5 +215,5 @@ end:
   u_int64_t frequency = (beaconX * 4000000) + beaconY;
 
   fprintf(stdout, "\nPart one: %d\n", count);
-  fprintf(stdout, "Part two: %llu\n", frequency);
+  fprintf(stdout, "Part two: %lu\n", frequency);
 }

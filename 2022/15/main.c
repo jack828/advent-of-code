@@ -5,6 +5,7 @@
 #include <string.h>
 #include <sys/types.h>
 #define TEST_MODE
+#include <time.h>
 #include "../../utils.h"
 
 #ifdef TEST_MODE
@@ -166,9 +167,21 @@ int main() {
   grid = calloc(sizeof(char) * WIDTH * HEIGHT, sizeof *grid);
 #endif
   readInput(__FILE__, lineHandler);
+  clock_t t;
+  t = clock();
+  int times = 100;
+  for (int i = 0; i < times; i++) {
+    run();
+  }
+  t = clock() - t;
+  double time_taken = (((double)t) / CLOCKS_PER_SEC) / times; // in seconds
+  double total_time = time_taken * 4000000;
 
-  run();
+  printf("run() took %f seconds to execute\n", time_taken);
+  printf("part two will take %.2fs / %.2f m / %.2f h \n", total_time,
+         total_time / 60, total_time / 60 / 60);
 
+  return 0;
   // TODO why are we off-by-one
   int count = -1;
 

@@ -27,6 +27,7 @@ typedef struct INPUT_LINE_LIST {
   int sensorX;
   int beaconY;
   int beaconX;
+  int taxicabDist;
   struct INPUT_LINE_LIST *next;
 } INPUT_LINE_LIST;
 
@@ -38,13 +39,11 @@ int unmapco(int coord) { return coord - (HEIGHT / 2); }
 
 int testY = (HEIGHT / 2) + TEST_Y;
 
-void drawSensorArea(struct INPUT_LINE_LIST * line) {
-  int taxicabDist = abs(line->sensorY - line->beaconY) + abs(line->sensorX - line->beaconX);
-
-  if (line->sensorY + taxicabDist > testY) {
-    for (int y = taxicabDist; y >= 0; y--) {
-      int minX = line->sensorX - taxicabDist + y;
-      int maxX = line->sensorX + taxicabDist - y;
+void drawSensorArea(struct INPUT_LINE_LIST *line) {
+  if (line->sensorY + line->taxicabDist > testY) {
+    for (int y = line->taxicabDist; y >= 0; y--) {
+      int minX = line->sensorX - line->taxicabDist + y;
+      int maxX = line->sensorX + line->taxicabDist - y;
       if (line->sensorY + y != testY) {
         continue;
       }
@@ -59,10 +58,10 @@ void drawSensorArea(struct INPUT_LINE_LIST * line) {
     }
   }
 
-  if (line->sensorY - taxicabDist < testY) {
-    for (int y = taxicabDist; y >= 0; y--) {
-      int minX = line->sensorX - taxicabDist + y;
-      int maxX = line->sensorX + taxicabDist - y;
+  if (line->sensorY - line->taxicabDist < testY) {
+    for (int y = line->taxicabDist; y >= 0; y--) {
+      int minX = line->sensorX - line->taxicabDist + y;
+      int maxX = line->sensorX + line->taxicabDist - y;
       if (line->sensorY - y != testY) {
         continue;
       }
@@ -136,6 +135,8 @@ void lineHandler(char *line) {
   lineItem->sensorX = mapco(sensorX);
   lineItem->beaconY = mapco(beaconY);
   lineItem->beaconX = mapco(beaconX);
+  lineItem->taxicabDist = abs(lineItem->sensorY - lineItem->beaconY) +
+                          abs(lineItem->sensorX - lineItem->beaconX);
   lineItem->next = input;
 
   input = lineItem;

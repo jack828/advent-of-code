@@ -7,7 +7,7 @@
 #include <string.h>
 #include <sys/types.h>
 #include <time.h>
-#define TEST_MODE
+// #define TEST_MODE
 #include "../../utils.h"
 
 #ifdef TEST_MODE
@@ -20,11 +20,10 @@ char (*grid)[WIDTH];
 #define HEIGHT 10000000ll
 #define WIDTH 10000000ll
 #define TEST_Y 2000000
-// #define MAX_COORD 4000000
-#define MAX_COORD 200
+#define MAX_COORD 4000000
 #endif
 
-#define THREAD_COUNT 2
+#define THREAD_COUNT 16
 
 typedef struct INPUT_LINE_LIST {
   int sensorY;
@@ -39,6 +38,10 @@ typedef struct POINT {
   int y;
   int x;
 } POINT;
+
+// Part two
+struct POINT *partTwoPoint = NULL;
+pthread_mutex_t mutex;
 
 struct INPUT_LINE_LIST *input = NULL;
 
@@ -152,32 +155,6 @@ void printGrid() {
 }
 #endif
 
-POINT *run(int testY) {
-  char *testRow = calloc(WIDTH, sizeof(char));
-  for (struct INPUT_LINE_LIST *line = input; line != NULL; line = line->next) {
-    drawSensorArea(line, testRow, testY);
-  }
-
-  struct POINT *point = NULL;
-
-  int mappedZero = mapco(0);
-  int mappedMax = mapco(MAX_COORD);
-  for (int i = mappedZero; i < mappedMax; i++) {
-#ifdef TEST_MODE
-    fputc(testRow[i] == 0 ? '.' : testRow[i], stdout);
-#endif
-    if (testRow[i] == 0) {
-      // gap found!
-      point = malloc(sizeof(struct POINT *));
-      point->y = unmapco(testY);
-      point->x = unmapco(i);
-      break;
-    }
-  }
-  free(testRow);
-  return point;
-}
-
 int runPartOne() {
   int testY = (HEIGHT / 2) + TEST_Y;
   char *testRow = calloc(WIDTH, sizeof(char));
@@ -208,16 +185,58 @@ int runPartOne() {
   return count;
 }
 
+POINT *run(int testY) {
+  char *testRow = calloc(WIDTH, sizeof(char));
+  for (struct INPUT_LINE_LIST *line = input; line != NULL; line = line->next) {
+    drawSensorArea(line, testRow, testY);
+  }
+
+  struct POINT *point = NULL;
+
+  int mappedZero = mapco(0);
+  int mappedMax = mapco(MAX_COORD);
+  for (int i = mappedZero; i < mappedMax; i++) {
+    // fputc(testRow[i] == 0 ? '.' : testRow[i], stdout);
+    if (testRow[i] == 0) {
+      // gap found!
+      point = malloc(sizeof(struct POINT *));
+      point->y = unmapco(testY);
+      point->x = unmapco(i);
+      break;
+    }
+  }
+  free(testRow);
+  return point;
+}
+
 typedef struct ARGS {
+  int id;
   int min;
   int max;
 } ARGS;
+
 void *worker(void *arg) {
   ARGS *args = (ARGS *)arg;
-  fprintf(stdout, "Worker min %d, max %d\n", args->min, args->max);
-  for (int i = args->min; i < args->max; i++) {
-    run(i);
+  fprintf(stdout, "Worker[%d] min %d, max %d\n", args->id, args->min,
+          args->max);
+
+  struct POINT *point = NULL;
+  for (int y = args->min; y < args->max; y++) {
+    point = run(y);
+
+    if (point != NULL) {
+      fprintf(stdout, "Worker[%d] got point (%d,%d)\n", args->id, point->y,
+              point->x);
+      pthread_mutex_unlock(&mutex);
+      partTwoPoint = malloc(sizeof(POINT *));
+      partTwoPoint->y = point->y;
+      partTwoPoint->x = point->x;
+      break;
+    }
   }
+
+  fprintf(stdout, "Worker[%d] done - point OK: %d\n", args->id,
+          partTwoPoint != NULL);
   pthread_exit(NULL);
 }
 
@@ -249,6 +268,7 @@ int main() {
 
   for (int i = 0; i < THREAD_COUNT; i++) {
     ARGS *args = malloc(sizeof(ARGS *));
+    args->id = i;
     args->min = i * step;
     args->max = ((i + 1) * step);
     pthread_create(&threads[i], NULL, worker, (void *)args);
@@ -269,24 +289,35 @@ int main() {
 
   int mappedZero = mapco(0);
   int mappedMax = mapco(MAX_COORD);
-  struct POINT *point = NULL;
   fprintf(stdout, "\nPxxxxxxxxxEx\n");
 
-  for (int y = mappedZero; y < mappedMax; y++) {
-    point = run(y);
+  int step = (mappedMax - mappedZero) / THREAD_COUNT;
+  pthread_t threads[THREAD_COUNT];
 
-    if (point != NULL) {
-      break;
-    }
-#ifdef TEST_MODE
-    fputs("\n", stdout);
-#endif
+  pthread_mutex_init(&mutex, NULL);
+  pthread_mutex_lock(&mutex);
+
+  int threadIndex = 0;
+  for (int i = mappedZero; i < mappedMax; i += step) {
+    ARGS *args = malloc(sizeof(ARGS *));
+    args->id = threadIndex;
+    args->min = i;
+    args->max = i + step;
+    pthread_create(&threads[threadIndex++], NULL, worker, (void *)args);
   }
-  if (point == NULL) {
+
+  pthread_mutex_lock(&mutex);
+  // for (int i = 0; i < THREAD_COUNT; i++) {
+  //   pthread_join(threads[i], NULL);
+  // }
+
+  if (partTwoPoint == NULL) {
     fprintf(stdout, "Failed to get point\n");
     return 1;
   }
-  u_int64_t frequency = (point->x * 4000000) + point->y;
+
+  fprintf(stdout, "finished point (%d,%d)\n", partTwoPoint->y, partTwoPoint->x);
+  u_int64_t frequency = (partTwoPoint->x * 4000000) + partTwoPoint->y;
 
   fprintf(stdout, "Part two: %lu\n", frequency);
 #ifdef TEST_MODE

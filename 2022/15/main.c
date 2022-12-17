@@ -170,6 +170,7 @@ POINT *run(int testY) {
       break;
     }
   }
+  free(testRow);
   return point;
 }
 
@@ -199,6 +200,7 @@ int runPartOne() {
 #ifdef TEST_MODE
   fputs("\"\n", stdout);
 #endif
+  free(testRow);
   return count;
 }
 

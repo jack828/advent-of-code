@@ -38,9 +38,7 @@ struct INPUT_LINE_LIST *input = NULL;
 int mapco(int coord) { return (HEIGHT / 2) + coord; }
 int unmapco(int coord) { return coord - (HEIGHT / 2); }
 
-int testY = (HEIGHT / 2) + TEST_Y;
-
-void drawSensorArea(struct INPUT_LINE_LIST *line) {
+void drawSensorArea(struct INPUT_LINE_LIST *line, int testY) {
   if (line->sensorY + line->taxicabDist > testY) {
     for (int y = line->taxicabDist; y >= 0; y--) {
       int minX = line->sensorX - line->taxicabDist + y;
@@ -155,10 +153,9 @@ void printGrid() {
 }
 #endif
 
-void run() {
-  // iterate the input lines and then draw drawSensorAreas
+void run(int testY) {
   for (struct INPUT_LINE_LIST *line = input; line != NULL; line = line->next) {
-    drawSensorArea(line);
+    drawSensorArea(line, testY);
   }
 }
 
@@ -167,28 +164,17 @@ int main() {
   grid = calloc(sizeof(char) * WIDTH * HEIGHT, sizeof *grid);
 #endif
   readInput(__FILE__, lineHandler);
-  clock_t t;
-  t = clock();
-  int times = 100;
-  for (int i = 0; i < times; i++) {
-    run();
-  }
-  t = clock() - t;
-  double time_taken = (((double)t) / CLOCKS_PER_SEC) / times; // in seconds
-  double total_time = time_taken * 4000000;
-
-  printf("run() took %f seconds to execute\n", time_taken);
-  printf("part two will take %.2fs / %.2f m / %.2f h \n", total_time,
-         total_time / 60, total_time / 60 / 60);
-
-  return 0;
   // TODO why are we off-by-one
   int count = -1;
+
+  int testY = (HEIGHT / 2) + TEST_Y;
+
+  run(testY);
 
 #ifdef TEST_MODE
   grid[testY][0] = '#';
   grid[testY][WIDTH - 1] = '#';
-  printGrid();
+  // printGrid();
   fprintf(stdout, "y: \"");
 #endif
   for (int i = 0; i < WIDTH; i++) {
@@ -205,12 +191,27 @@ int main() {
 
   int beaconY = 0;
   int beaconX = 0;
-  for (int y = mapco(0); y < mapco(MAX_COORD); y++) {
-    testY = y;
+  int mappedZero = mapco(0);
+  int mappedMax = mapco(MAX_COORD);
+  fprintf(stdout, "\nPxxxxxxxxxEx\n");
+  for (int y = mappedZero; y < mappedMax; y++) {
     memset(testRow, 0, sizeof testRow);
-    run();
+    run(y);
 
-    for (int i = mapco(0); i < mapco(MAX_COORD); i++) {
+    // testRow[mappedMax] = '\0';
+    // fputs(testRow, stdout);
+    // char *gap = strchr(testRow + mappedZero, 0);
+    // fprintf(stdout, "gap: %c\n", *gap);
+    // int dist = ((char *)gap) - ((char *)testRow);
+    // if (gap != NULL && dist <= mappedMax) {
+    // gap found!
+    // beaconY = unmapco(y);
+    // beaconX = unmapco(dist);
+    // fprintf(stdout, "gap: %c, dist %d, x %d\n", *gap, dist, beaconX);
+    // goto end;
+    // break;
+    // }
+    for (int i = mappedZero; i < mappedMax; i++) {
 #ifdef TEST_MODE
       fputc(testRow[i] == 0 ? '.' : testRow[i], stdout);
 #endif
@@ -222,11 +223,26 @@ int main() {
       }
     }
 #ifdef TEST_MODE
-    fputs("\"\n", stdout);
+    fputs("\n", stdout);
 #endif
   }
 end:
   u_int64_t frequency = (beaconX * 4000000) + beaconY;
+
+  fprintf(stdout, "\nPxxxxxxxxxx\n");
+  clock_t t;
+  t = clock();
+  int times = 100;
+  for (int i = 0; i < times; i++) {
+    run(i);
+  }
+  t = clock() - t;
+  double time_taken = (((double)t) / CLOCKS_PER_SEC) / times; // in seconds
+  double total_time = time_taken * 4000000;
+
+  printf("run() took %f seconds to execute\n", time_taken);
+  printf("part two will take %.2fs / %.2f m / %.2f h \n", total_time,
+         total_time / 60, total_time / 60 / 60);
 
   fprintf(stdout, "\nPart one: %d\n", count);
   fprintf(stdout, "Part two: %lu\n", frequency);

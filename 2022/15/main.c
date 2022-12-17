@@ -93,9 +93,6 @@ int tokenToInt(char *token) {
 }
 
 void lineHandler(char *line) {
-  // fputs("line: ", stdout);
-  // fputs(line, stdout);
-
   int sensorY;
   int sensorX;
   int beaconY;
@@ -120,12 +117,6 @@ void lineHandler(char *line) {
   sensorX = tokenToInt(sensorXtoken);
   beaconY = tokenToInt(beaconYtoken);
   beaconX = tokenToInt(beaconXtoken);
-  // fprintf(stdout, "sensor: (%s, %s), beacon (%s, %s)\n", sensorYtoken,
-  // sensorXtoken, beaconYtoken, beaconXtoken);
-
-  // int taxicabDist = abs(sensorY - beaconY) + abs(sensorX - beaconX);
-  // fprintf(stdout, "sensor: (%d, %d), beacon (%d, %d) taxicabDist %d\n",
-  // sensorY, sensorX, beaconY, beaconX, taxicabDist);
 
 #ifdef TEST_MODE
   grid[mapco(sensorY)][mapco(sensorX)] = 'S';
@@ -184,8 +175,6 @@ POINT *run(int testY) {
 
 int runPartOne() {
   int testY = (HEIGHT / 2) + TEST_Y;
-  // char testRow[WIDTH] = {0};
-  // char *testRow = malloc(sizeof(char) * WIDTH);
   char *testRow = calloc(WIDTH, sizeof(char));
   for (struct INPUT_LINE_LIST *line = input; line != NULL; line = line->next) {
     drawSensorArea(line, testRow, testY);
@@ -242,13 +231,11 @@ int main() {
   printf("part two will take %.2fs / %.2f m / %.2f h \n", total_time,
          total_time / 60, total_time / 60 / 60);
 
-
   int mappedZero = mapco(0);
   int mappedMax = mapco(MAX_COORD);
   struct POINT *point = NULL;
   fprintf(stdout, "\nPxxxxxxxxxEx\n");
   for (int y = mappedZero; y < mappedMax; y++) {
-    // memset(testRow, 0, sizeof testRow);
     point = run(y);
 
     if (point != NULL) {

@@ -1,12 +1,13 @@
 #include <assert.h>
 #include <ctype.h>
+#include <pthread.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/types.h>
-#define TEST_MODE
 #include <time.h>
+#define TEST_MODE
 #include "../../utils.h"
 
 #ifdef TEST_MODE
@@ -19,8 +20,11 @@ char (*grid)[WIDTH];
 #define HEIGHT 10000000ll
 #define WIDTH 10000000ll
 #define TEST_Y 2000000
-#define MAX_COORD 4000000
+// #define MAX_COORD 4000000
+#define MAX_COORD 200
 #endif
+
+#define THREAD_COUNT 2
 
 typedef struct INPUT_LINE_LIST {
   int sensorY;
@@ -204,6 +208,19 @@ int runPartOne() {
   return count;
 }
 
+typedef struct ARGS {
+  int min;
+  int max;
+} ARGS;
+void *worker(void *arg) {
+  ARGS *args = (ARGS *)arg;
+  fprintf(stdout, "Worker min %d, max %d\n", args->min, args->max);
+  for (int i = args->min; i < args->max; i++) {
+    run(i);
+  }
+  pthread_exit(NULL);
+}
+
 int main() {
 #ifdef TEST_MODE
   grid = calloc(sizeof(char) * WIDTH * HEIGHT, sizeof *grid);
@@ -219,24 +236,42 @@ int main() {
   assert(partOne == 4793062);
 #endif
 
+  /* Test timings to understand speedup for P2
+   * In my case, I started with ~43h and this was reduced to ~7h on 10 threads.
   clock_t t;
   t = clock();
   int times = 100;
-  for (int i = 0; i < times; i++) {
-    run(i);
+
+  int step = times / THREAD_COUNT;
+  pthread_t threads[THREAD_COUNT];
+
+  fprintf(stdout, "\nthreads: %d, step: %d\n", THREAD_COUNT, step);
+
+  for (int i = 0; i < THREAD_COUNT; i++) {
+    ARGS *args = malloc(sizeof(ARGS *));
+    args->min = i * step;
+    args->max = ((i + 1) * step);
+    pthread_create(&threads[i], NULL, worker, (void *)args);
+  }
+
+  for (int i = 0; i < THREAD_COUNT; i++) {
+    pthread_join(threads[i], NULL);
   }
   t = clock() - t;
-  double time_taken = (((double)t) / CLOCKS_PER_SEC) / times; // in seconds
+  double time_taken =
+      (((double)t) / CLOCKS_PER_SEC) / times / THREAD_COUNT; // in seconds
   double total_time = time_taken * 4000000;
 
   printf("run() took %f seconds to execute\n", time_taken);
   printf("part two will take %.2fs / %.2f m / %.2f h \n", total_time,
          total_time / 60, total_time / 60 / 60);
+  */
 
   int mappedZero = mapco(0);
   int mappedMax = mapco(MAX_COORD);
   struct POINT *point = NULL;
   fprintf(stdout, "\nPxxxxxxxxxEx\n");
+
   for (int y = mappedZero; y < mappedMax; y++) {
     point = run(y);
 
@@ -253,12 +288,10 @@ int main() {
   }
   u_int64_t frequency = (point->x * 4000000) + point->y;
 
-  fprintf(stdout, "\nPxxxxxxxxxx\n");
+  fprintf(stdout, "Part two: %lu\n", frequency);
 #ifdef TEST_MODE
-  assert(frequency == 26);
+  assert(frequency == 56000011);
 #else
   assert(frequency == 4793062);
 #endif
-
-  fprintf(stdout, "Part two: %lu\n", frequency);
 }

@@ -1,3 +1,4 @@
+#include <assert.h>
 #include <ctype.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -21,8 +22,6 @@ char (*grid)[WIDTH];
 #define MAX_COORD 4000000
 #endif
 
-char testRow[WIDTH] = {0};
-
 typedef struct INPUT_LINE_LIST {
   int sensorY;
   int sensorX;
@@ -32,13 +31,18 @@ typedef struct INPUT_LINE_LIST {
   struct INPUT_LINE_LIST *next;
 } INPUT_LINE_LIST;
 
+typedef struct POINT {
+  int y;
+  int x;
+} POINT;
+
 struct INPUT_LINE_LIST *input = NULL;
 
 // map coordinate to the grid so we can support a negative index
 int mapco(int coord) { return (HEIGHT / 2) + coord; }
 int unmapco(int coord) { return coord - (HEIGHT / 2); }
 
-void drawSensorArea(struct INPUT_LINE_LIST *line, int testY) {
+void drawSensorArea(struct INPUT_LINE_LIST *line, char *testRow, int testY) {
   if (line->sensorY + line->taxicabDist > testY) {
     for (int y = line->taxicabDist; y >= 0; y--) {
       int minX = line->sensorX - line->taxicabDist + y;
@@ -153,24 +157,42 @@ void printGrid() {
 }
 #endif
 
-void run(int testY) {
+POINT *run(int testY) {
+  char *testRow = calloc(WIDTH, sizeof(char));
   for (struct INPUT_LINE_LIST *line = input; line != NULL; line = line->next) {
-    drawSensorArea(line, testY);
+    drawSensorArea(line, testRow, testY);
   }
+
+  struct POINT *point = NULL;
+
+  int mappedZero = mapco(0);
+  int mappedMax = mapco(MAX_COORD);
+  for (int i = mappedZero; i < mappedMax; i++) {
+#ifdef TEST_MODE
+    fputc(testRow[i] == 0 ? '.' : testRow[i], stdout);
+#endif
+    if (testRow[i] == 0) {
+      // gap found!
+      point = malloc(sizeof(struct POINT *));
+      point->y = unmapco(testY);
+      point->x = unmapco(i);
+      break;
+    }
+  }
+  return point;
 }
 
-int main() {
-#ifdef TEST_MODE
-  grid = calloc(sizeof(char) * WIDTH * HEIGHT, sizeof *grid);
-#endif
-  readInput(__FILE__, lineHandler);
+int runPartOne() {
+  int testY = (HEIGHT / 2) + TEST_Y;
+  // char testRow[WIDTH] = {0};
+  // char *testRow = malloc(sizeof(char) * WIDTH);
+  char *testRow = calloc(WIDTH, sizeof(char));
+  for (struct INPUT_LINE_LIST *line = input; line != NULL; line = line->next) {
+    drawSensorArea(line, testRow, testY);
+  }
+
   // TODO why are we off-by-one
   int count = -1;
-
-  int testY = (HEIGHT / 2) + TEST_Y;
-
-  run(testY);
-
 #ifdef TEST_MODE
   grid[testY][0] = '#';
   grid[testY][WIDTH - 1] = '#';
@@ -188,48 +210,24 @@ int main() {
 #ifdef TEST_MODE
   fputs("\"\n", stdout);
 #endif
+  return count;
+}
 
-  int beaconY = 0;
-  int beaconX = 0;
-  int mappedZero = mapco(0);
-  int mappedMax = mapco(MAX_COORD);
-  fprintf(stdout, "\nPxxxxxxxxxEx\n");
-  for (int y = mappedZero; y < mappedMax; y++) {
-    memset(testRow, 0, sizeof testRow);
-    run(y);
-
-    // testRow[mappedMax] = '\0';
-    // fputs(testRow, stdout);
-    // char *gap = strchr(testRow + mappedZero, 0);
-    // fprintf(stdout, "gap: %c\n", *gap);
-    // int dist = ((char *)gap) - ((char *)testRow);
-    // if (gap != NULL && dist <= mappedMax) {
-    // gap found!
-    // beaconY = unmapco(y);
-    // beaconX = unmapco(dist);
-    // fprintf(stdout, "gap: %c, dist %d, x %d\n", *gap, dist, beaconX);
-    // goto end;
-    // break;
-    // }
-    for (int i = mappedZero; i < mappedMax; i++) {
+int main() {
 #ifdef TEST_MODE
-      fputc(testRow[i] == 0 ? '.' : testRow[i], stdout);
+  grid = calloc(sizeof(char) * WIDTH * HEIGHT, sizeof *grid);
 #endif
-      if (testRow[i] == 0) {
-        // gap found!
-        beaconY = unmapco(y);
-        beaconX = unmapco(i);
-        goto end;
-      }
-    }
-#ifdef TEST_MODE
-    fputs("\n", stdout);
-#endif
-  }
-end:
-  u_int64_t frequency = (beaconX * 4000000) + beaconY;
+  readInput(__FILE__, lineHandler);
 
-  fprintf(stdout, "\nPxxxxxxxxxx\n");
+  int partOne = runPartOne();
+  fprintf(stdout, "\nPart one: %d\n", partOne);
+
+#ifdef TEST_MODE
+  assert(partOne == 26);
+#else
+  assert(partOne == 4793062);
+#endif
+
   clock_t t;
   t = clock();
   int times = 100;
@@ -244,6 +242,34 @@ end:
   printf("part two will take %.2fs / %.2f m / %.2f h \n", total_time,
          total_time / 60, total_time / 60 / 60);
 
-  fprintf(stdout, "\nPart one: %d\n", count);
+
+  int mappedZero = mapco(0);
+  int mappedMax = mapco(MAX_COORD);
+  struct POINT *point = NULL;
+  fprintf(stdout, "\nPxxxxxxxxxEx\n");
+  for (int y = mappedZero; y < mappedMax; y++) {
+    // memset(testRow, 0, sizeof testRow);
+    point = run(y);
+
+    if (point != NULL) {
+      break;
+    }
+#ifdef TEST_MODE
+    fputs("\n", stdout);
+#endif
+  }
+  if (point == NULL) {
+    fprintf(stdout, "Failed to get point\n");
+    return 1;
+  }
+  u_int64_t frequency = (point->x * 4000000) + point->y;
+
+  fprintf(stdout, "\nPxxxxxxxxxx\n");
+#ifdef TEST_MODE
+  assert(frequency == 26);
+#else
+  assert(frequency == 4793062);
+#endif
+
   fprintf(stdout, "Part two: %lu\n", frequency);
 }

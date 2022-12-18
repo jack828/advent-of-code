@@ -289,7 +289,6 @@ int main() {
 
   int mappedZero = mapco(0);
   int mappedMax = mapco(MAX_COORD);
-  fprintf(stdout, "\nPxxxxxxxxxEx\n");
 
   int step = (mappedMax - mappedZero) / THREAD_COUNT;
   pthread_t threads[THREAD_COUNT];
@@ -317,12 +316,12 @@ int main() {
   }
 
   fprintf(stdout, "finished point (%d,%d)\n", partTwoPoint->y, partTwoPoint->x);
-  u_int64_t frequency = (partTwoPoint->x * 4000000) + partTwoPoint->y;
+  u_int64_t frequency = (partTwoPoint->x * 4000000lu) + partTwoPoint->y;
 
   fprintf(stdout, "Part two: %lu\n", frequency);
 #ifdef TEST_MODE
   assert(frequency == 56000011);
 #else
-  assert(frequency == 4793062);
+  assert(frequency == 10826395253551);
 #endif
 }

@@ -1,3 +1,4 @@
+#include <assert.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -15,6 +16,20 @@ void lineHandler(char *line) {
 
 int main() {
   readInput(__FILE__, lineHandler);
+
+  /* well implemented program goes here */
+
   fprintf(stdout, "Part one: %d\n", 69);
+#ifdef TEST_MODE
+  assert(69 == 69);
+#else
+  assert(69 == 69);
+#endif
+
   fprintf(stdout, "Part two: %d\n", 420);
+#ifdef TEST_MODE
+  assert(420 == 69);
+#else
+  assert(420 == 69);
+#endif
 }

@@ -9,8 +9,8 @@
 
 #define _AOC_LINE_MAX 1024
 
-void readInput(const char *file, void (*lineHandler)(char *)) {
-  char path[_AOC_LINE_MAX];
+void readInput_n(const char *file, void (*lineHandler)(char *), int lineLength) {
+  char path[lineLength];
   path[0] = '\0';
   strcat(path, file);
   *strrchr(path, '/') = '\0';
@@ -25,11 +25,16 @@ void readInput(const char *file, void (*lineHandler)(char *)) {
     perror("Unable to open file!");
     exit(1);
   }
-  char line[_AOC_LINE_MAX];
+  char line[lineLength];
   while (fgets(line, sizeof(line), fp) != NULL) {
     lineHandler(line);
   }
   fclose(fp);
+}
+
+
+void readInput(const char *file, void (*lineHandler)(char *)) {
+  readInput_n(file, lineHandler, _AOC_LINE_MAX);
 }
 
 int max(int a, int b) {

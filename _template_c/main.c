@@ -21,9 +21,9 @@ int main() {
 
   fprintf(stdout, "Part one: %d\n", 69);
 #ifdef TEST_MODE
-  assert(69 == 69);
+  assert(69 == 420);
 #else
-  assert(69 == 69);
+  assert(69 == 420);
 #endif
 
   fprintf(stdout, "Part two: %d\n", 420);

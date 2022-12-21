@@ -1,0 +1,8 @@
+#!/usr/bin/env zsh
+
+## USAGE
+# ./timer 2022 7
+# outputs time in milliseconds
+for i in {1..100};
+  do ./time ./$1/$2/main.out;
+done | awk -v OFMT='%f' '{sum += $0} END {print (sum / NR) * 1000}'

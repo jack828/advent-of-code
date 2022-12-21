@@ -1,0 +1,9 @@
+#!/usr/bin/env zsh
+
+## USAGE
+# ./time ./2022/18/main.out
+typeset -F SECONDS=0
+
+zsh -c "$@" > /dev/null
+
+echo $SECONDS

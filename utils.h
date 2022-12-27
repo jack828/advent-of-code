@@ -7,7 +7,9 @@
 #include <string.h>
 #include <sys/types.h>
 
+#ifndef _AOC_LINE_MAX
 #define _AOC_LINE_MAX 1024
+#endif
 
 void readInput_n(const char *file, void (*lineHandler)(char *), int lineLength) {
   char path[lineLength];

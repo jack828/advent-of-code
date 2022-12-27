@@ -9,9 +9,7 @@
 
 
 void lineHandler(char *line) {
-  fputs("line: ", stdout);
-  fputs(line, stdout);
-  fputs("\n", stdout);
+  fprintf(stdout, "line: %s\n", line);
 }
 
 int main() {

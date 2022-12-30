@@ -1,21 +1,35 @@
 #include <assert.h>
+#include <math.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/types.h>
-#define TEST_MODE
+// #define TEST_MODE
+#include "../../lib/pqueue.h"
+#include "../../lib/queue.h"
 #include "../../utils.h"
 
 #ifdef TEST_MODE
 #define HEIGHT 6
 #define WIDTH 8
+#define CYCLES 12
 #else
 #define HEIGHT 22
 #define WIDTH 152
+#define CYCLES 300 // lcm(HEIGHT-2, WIDTH-2) - excl walls
 #endif
 
-char grid[HEIGHT][WIDTH] = {0};
+char grid[CYCLES][HEIGHT][WIDTH] = {0};
+char map[HEIGHT][WIDTH] = {0};
+char visited[CYCLES * CYCLES][HEIGHT][WIDTH] = {0};
+
+typedef struct {
+  int y;
+  int x;
+  int m;
+  int cost;
+} point_t;
 
 typedef struct {
   int y;
@@ -23,27 +37,15 @@ typedef struct {
   char c;
 } blizzard_t;
 
-typedef struct path_t {
-  int y;
-  int x;
-  int minute;
-  struct path_t *prev;
-  bool processed;
-} path_t;
-
 int startY = 0;
 int startX = 1;
-int endY = HEIGHT;
-int endX = WIDTH - 1;
+int endY = HEIGHT - 1;
+int endX = WIDTH - 2;
 
-int lineY = 0;
-// probably will not need this many but cba to deal with dynamic-ness
-path_t *paths[HEIGHT * WIDTH * 2] = {0};
-int pathCount = 0;
-int shortestPath = 0;
 blizzard_t *blizzards[HEIGHT * WIDTH] = {0};
 int blizzardCount = 0;
 
+int lineY = 0;
 void lineHandler(char *line) {
   fprintf(stdout, "line: %s\n", line);
 
@@ -61,95 +63,22 @@ void lineHandler(char *line) {
       blizzard->x = i;
       blizzard->c = c;
       blizzards[blizzardCount++] = blizzard;
-
-      line[i] = '.';
+      grid[0][lineY][i] = line[i];
       break;
     }
     case '.':
       // space
+      grid[0][lineY][i] = 0;
+      map[lineY][i] = 0;
       break;
     case '#':
       // wall
+      grid[0][lineY][i] = line[i];
+      map[lineY][i] = line[i];
       break;
     }
   }
-  strcat(grid[lineY++], line);
-}
-
-blizzard_t *getBlizzard(int y, int x) {
-  for (int i = 0; i < blizzardCount; i++) {
-    blizzard_t *blizzard = blizzards[i];
-    if (blizzard->y == y && blizzard->x == x) {
-      return blizzard;
-    }
-  }
-  return NULL;
-}
-
-int countBlizzards(int y, int x) {
-  int count = 0;
-  for (int i = 0; i < blizzardCount; i++) {
-    blizzard_t *blizzard = blizzards[i];
-    if (blizzard->y == y && blizzard->x == x) {
-      count++;
-    }
-  }
-  return count;
-}
-
-void printGrid(path_t *path) {
-  for (int y = 0; y < HEIGHT; y++) {
-    for (int x = 0; x < WIDTH; x++) {
-      if (startY == y && startX == x) {
-        fputc('S', stdout);
-        continue;
-      }
-      if (path->y == y && path->x == x) {
-        fputc('x', stdout);
-        continue;
-      }
-      int numBlizzards = countBlizzards(y, x);
-      if (numBlizzards == 1) {
-        blizzard_t *blizzard = getBlizzard(y, x);
-        fputc(blizzard->c, stdout);
-      } else if (numBlizzards > 1) {
-        fputc(numBlizzards + 48, stdout);
-      } else {
-        fputc(grid[y][x], stdout);
-      }
-    }
-    fputs("\n", stdout);
-  }
-  fputs("\n", stdout);
-}
-
-// returns true if we haven't visited this place at most <limit> moves ago
-// and there isn't a better path already there
-bool shouldVisit(path_t *path, int y, int x) {
-  bool recentlyVisited = false;
-  int limit = 0;
-  path_t *movement = path->prev;
-  while (limit && movement != NULL) {
-
-    // fprintf(stdout, "Path minute: %d visited (%d,%d) == (%d,%d)\n",
-    // movement->minute, movement->y, movement->x, y, x);
-    if (movement->y == y && movement->x == x) {
-      recentlyVisited = true;
-      break;
-    }
-    movement = movement->prev;
-    limit--;
-  }
-  bool hasBetterPath = false;
-  int count = pathCount;
-  for (int i = 0; i < count; i++) {
-    path_t *path = paths[i];
-    if (path->y == y && path->x == x) {
-      recentlyVisited = true;
-      break;
-    }
-  }
-  return !recentlyVisited || !hasBetterPath;
+  lineY++;
 }
 
 void tick() {
@@ -190,145 +119,199 @@ void tick() {
   }
 }
 
-void findPath(path_t *path) {
-  if (path->processed) {
-    // ignore all but the head of a path
-    return;
+void calculateBlizzards() {
+  for (int cycle = 0; cycle < CYCLES; cycle++) {
+    for (int i = 0; i < blizzardCount; i++) {
+      blizzard_t *blizzard = blizzards[i];
+      grid[cycle][blizzard->y][blizzard->x] = blizzard->c;
+    }
+    tick();
   }
-  fprintf(stdout, "Path minute: %d\n", path->minute);
-  // check for new available paths
-  // fork for each one and increment minute
-  // ...isnt each step in the path a minute increment?
+}
 
-  // check if we can move to the end
-  if (path->y + 1 == endY && path->x == endX) {
-    fprintf(stdout, "exit found!\n\n");
-    shortestPath = path->minute + 1;
-    return;
+void printGrid(int minute) {
+  for (int y = 0; y < HEIGHT; y++) {
+    for (int x = 0; x < WIDTH; x++) {
+      if (startY == y && startX == x) {
+        fputc('S', stdout);
+        continue;
+      }
+      fputc(grid[minute][y][x] ? grid[minute][y][x] : '.', stdout);
+    }
+    fputs("\n", stdout);
   }
-  // check each available place
-  // north
-  if (path->y - 1 > 0) {
-    if (!getBlizzard(path->y - 1, path->x) &&
-        shouldVisit(path, path->y - 1, path->x)) {
-      fprintf(stdout, "Path minute: %d - north\n", path->minute);
-      // move there!
-      path_t *newPath = malloc(sizeof(path_t));
-      newPath->processed = false;
-      newPath->y = path->y - 1;
-      newPath->x = path->x;
-      newPath->prev = path;
-      newPath->minute = path->minute + 1;
-      paths[pathCount++] = newPath;
-      // findPath(newPath);
+  fputs("\n", stdout);
+}
+
+void printMap() {
+  for (int y = 0; y < HEIGHT; y++) {
+    if (y == endY) {
+      fputc('E', stdout);
+    } else {
+      fputc(' ', stdout);
+    }
+    for (int x = 0; x < WIDTH; x++) {
+      if (y == endY && x == endX) {
+        fputs("E", stdout);
+
+      } else {
+        fputc(map[y][x] ? map[y][x] : '.', stdout);
+      }
+    }
+    fputs("\n", stdout);
+  }
+  fputs("\n", stdout);
+}
+
+bool isValid(int minute, int y, int x) {
+  // fprintf(stdout, "isvalid %d, (%d, %d) = \n", minute, y, x);
+  if (visited[minute][y][x]) {
+    return false;
+  }
+  if (y == endY && x == endX) {
+    // fprintf(stdout, "exit found4!\n\n");
+    // fprintf(stdout, "y >= 0\t\t %d\n", y >= 0);
+    // fprintf(stdout, "y <= HEIGHT\t %d\n", y <= HEIGHT);
+    // fprintf(stdout, "x >= 0\t\t %d\n", x >= 0);
+    // fprintf(stdout, "x <= WIDTH\t %d\n", x <= WIDTH);
+    // fprintf(stdout, "map[y][x]\t %c\n", map[y][x]);
+    // return true;
+    // exit(1);
+  }
+  // is within bounds and not in the wall (there are two gaps for start/end)
+  if (y >= 0 && y <= HEIGHT && x >= 0 && x <= WIDTH && map[y][x] == 0) {
+    // and does not have a blizzard there (direction/count irrelevant)
+    // fprintf(stdout, "in bound, grid: %c\n", grid[minute][y][x]);
+    if (!grid[minute % CYCLES][y][x]) {
+      // && visited[0][y][x] < 4) {
+      visited[minute][y][x]++;
+      // fprintf(stdout, "TRUE %c %d\n", grid[minute + 1 % CYCLES][y][x],
+      return true;
     }
   }
-  // south
-  if (path->y + 1 < HEIGHT - 1) {
-    if (!getBlizzard(path->y + 1, path->x) &&
-        shouldVisit(path, path->y + 1, path->x)) {
-      fprintf(stdout, "Path minute: %d - south\n", path->minute);
-      // move there!
-      path_t *newPath = malloc(sizeof(path_t));
-      newPath->processed = false;
-      newPath->y = path->y + 1;
-      newPath->x = path->x;
-      newPath->prev = path;
-      newPath->minute = path->minute + 1;
-      paths[pathCount++] = newPath;
-      // findPath(newPath);
-    }
-  }
-  // west
-  if (path->y > 0 && path->x - 1 > 0) {
-    if (!getBlizzard(path->y, path->x - 1) &&
-        shouldVisit(path, path->y, path->x - 1)) {
-      fprintf(stdout, "Path minute: %d - west\n", path->minute);
-      // move there!
-      path_t *newPath = malloc(sizeof(path_t));
-      newPath->processed = false;
-      newPath->y = path->y;
-      newPath->x = path->x - 1;
-      newPath->prev = path;
-      newPath->minute = path->minute + 1;
-      paths[pathCount++] = newPath;
-      // findPath(newPath);
-    }
-  }
-  // east
-  if (path->y > 0 && path->x + 1 < WIDTH - 1) {
-    if (!getBlizzard(path->y, path->x + 1) &&
-        shouldVisit(path, path->y, path->x + 1)) {
-      fprintf(stdout, "Path minute: %d - east\n", path->minute);
-      // move there!
-      path_t *newPath = malloc(sizeof(path_t));
-      newPath->processed = false;
-      newPath->y = path->y;
-      newPath->x = path->x + 1;
-      newPath->prev = path;
-      newPath->minute = path->minute + 1;
-      paths[pathCount++] = newPath;
-      // findPath(newPath);
-    }
-  }
-  // stay
-  if (path->y > 0 && !getBlizzard(path->y, path->x) &&
-      shouldVisit(path, path->y, path->x)) {
-    fprintf(stdout, "Path minute: %d - stay\n", path->minute);
-    // but wait
-    path_t *newPath = malloc(sizeof(path_t));
-    newPath->processed = false;
-    newPath->y = path->y;
-    newPath->x = path->x;
-    newPath->prev = path;
-    newPath->minute = path->minute + 1;
-    paths[pathCount++] = newPath;
-    // findPath(newPath);
-  }
-  path->processed = true;
+  // fprintf(stdout, "false %c %d\n", grid[minute + 1 % CYCLES][y][x],
+  // grid[minute + 1 % CYCLES][y][x]);
+  // fprintf(stdout, "FALSE\n");
+  return false;
+}
+
+// taxicab distance
+int calculateCost(int aY, int aX, int bY, int bX) {
+  return abs(aY - bY) + abs(aX - bX);
 }
 
 int main() {
   readInput(__FILE__, lineHandler);
+  calculateBlizzards();
 
-  path_t *path = malloc(sizeof(path_t));
-  path->x = startX;
-  path->y = startY;
-  path->minute = 1;
-  paths[pathCount++] = path;
-  printGrid(path);
+  queue_t *queue = q_create();
+  point_t *startPoint = malloc(sizeof(point_t));
+  startPoint->y = startY;
+  startPoint->x = startX;
+  startPoint->m = 0;
+  // startPoint->y = 5;
+  // startPoint->x = 6;
+  // startPoint->m = 2;
+  startPoint->cost = calculateCost(endY, endX, startPoint->y, startPoint->x);
+  q_enqueue(queue, startPoint);
 
-  fprintf(stdout, "paths: %d\n", pathCount);
-  int steps = 0;
-  while (shortestPath == 0) {
-    tick();
-    int count = pathCount;
-    for (int i = 0; i < count; i++) {
-      path_t *path = paths[i];
-      findPath(path);
+  point_t *startPoint2 = malloc(sizeof(point_t));
+  startPoint2->y = 20;
+  startPoint2->x = 151;
+  startPoint2->m = 1;
+  // q_enqueue(queue, startPoint2);
+  // q_enqueue(yQueue, 5);
+  // q_enqueue(xQueue, 6);
+  // q_enqueue(mQueue, 2);
+
+  fprintf(stdout, "end is at (%d, %d)\n", endY, endX);
+
+  // north, south, east, west, stay
+  int dY[] = {-1, 0, 0, 1, 0};
+  int dX[] = {0, -1, 1, 0, 0};
+  int time = 0;
+  int loop = 0;
+  while (!q_empty(queue)) {
+    point_t *point = q_dequeue(queue);
+    // fprintf(stdout, "loop: %d - %d, (%d, %d)\n", loop++, point->m, point->y,
+    // point->x);
+    // if (loop > 100) break;
+    // fprintf(stdout, "loop %d, (%d, %d)\n", m, y, x);
+    // dont ask my why there's two
+    // i think it's because i couldn't get the bounds check quite right
+    if (point->y == endY && point->x == endX) {
+      fprintf(stdout, "exit found1!\n\n");
+      time = point->m;
+      break;
     }
-    if (steps > 17) {
-    break;
+    // if (point->y + 1 == endY && point->x == endX) {
+    //   fprintf(stdout, "exit found2!\n\n");
+    //   time = point->m - 1;
+    //   break;
+    // }
+    for (int i = 0; i < 5; i++) {
+      point_t *newPoint = malloc(sizeof(point_t));
+      if (point->m >= 500) {
+        continue;
+      }
+      newPoint->y = point->y + dY[i];
+      newPoint->x = point->x + dX[i];
+      newPoint->m = point->m + 1;
+      newPoint->cost = point->cost + 1; // g
+
+      if (isValid(newPoint->m, newPoint->y, newPoint->x)) {
+        // fprintf(stdout, "neighbour: %d, (%d, %d)\n", newPoint->m,
+        // newPoint->y, newPoint->x); distance from start int gCost =
+        // calculateCost(startY, startX, newPoint->y, newPoint->x);
+        // int gCost = newPoint->cost;
+        // distance from end
+        // int hCost = calculateCost(endY, endX, newPoint->y, newPoint->x);
+        // int fCost = gCost + hCost;
+        // newPoint->cost = hCost;
+        /* fprintf(stdout, "old m %d, c: %d\n", point->m, point->cost);
+        fprintf(stdout,
+                "m %d, c: %d, gCost: %d, hCost: %d, fCost: "
+                "%d\n",
+                newPoint->m, newPoint->cost, gCost, hCost, fCost); */
+        // if (newPoint->cost < point->cost) {
+        // fprintf(stdout, "cost ok\n");
+        q_enqueue(queue, newPoint);
+        // }
+      } else {
+        free(newPoint);
+      }
     }
-    steps++;
-    fprintf(stdout, "step: %d, paths: %d\n", steps, pathCount);
-    printGrid(paths[pathCount - 1]);
+    free(point);
   }
-  fprintf(stdout, "paths: %d\n", pathCount);
-  printGrid(paths[pathCount - 6]);
-  // tick();
 
-  fprintf(stdout, "Part one: %d\n", 69);
+  // printGrid(2);
+  /*
+  for (int cycle = 0; cycle < CYCLES; cycle++) {
+    fprintf(stdout, "cycle: %d\n", cycle);
+    for (int y = 0; y < HEIGHT; y++) {
+      for (int x = 0; x < WIDTH; x++) {
+        fputc(grid[cycle][y][x] ? grid[cycle][y][x] : '.', stdout);
+      }
+      fputc('\n', stdout);
+    }
+    fputc('\n', stdout);
+  }
+  */
+
+  fprintf(stdout, "end is at (%d, %d) - %c %d\n", endY, endX, map[endY][endX],
+          map[endY][endX]);
+  fprintf(stdout, "Part one: %d\n", time);
+  // printMap();
 #ifdef TEST_MODE
-  assert(69 == 420);
+  assert(time == 18);
 #else
-  assert(69 == 420);
+  assert(time == 326);
 #endif
 
   fprintf(stdout, "Part two: %d\n", 420);
 #ifdef TEST_MODE
   assert(420 == 69);
 #else
-  assert(420 == 69);
+  // assert(420 == 69);
 #endif
 }

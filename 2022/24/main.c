@@ -167,6 +167,10 @@ bool isValid(int minute, int y, int x) {
   if (visited[minute][y][x]) {
     return false;
   }
+  // if ((y == startY && x == startX) ||(y == endY && x == endX)) {
+  // return true;
+  // }
+  // printf("%d (%d,%d)\n", minute, y, x);
   // is within bounds and not in the wall (there are two gaps for start/end)
   if (y >= 0 && y <= HEIGHT && x >= 0 && x <= WIDTH && map[y][x] == 0) {
     // and does not have a blizzard there (direction/count irrelevant)
@@ -238,6 +242,58 @@ int aStar(int aY, int aX, int bY, int bX, int minute) {
     free(point);
   }
 
+  pq_destroy(queue);
+
+  if (time == -1) {
+    fprintf(stdout, "no path!\n");
+    exit(1);
+  }
+  return time;
+}
+
+// Number of minutes between a and b
+int DFS(int aY, int aX, int bY, int bX, int minute) {
+  int time = -1;
+
+  memset(visited, 0, sizeof(visited));
+  queue_t *queue = q_create();
+  point_t *startPoint = malloc(sizeof(point_t));
+  startPoint->y = aY;
+  startPoint->x = aX;
+  startPoint->m = minute;
+  q_enqueue(queue, startPoint);
+
+  fprintf(stdout, "%dm (%d, %d) --> (%d, %d)\n", minute, aY, aX, bY, bX);
+
+  // north, south, east, west, stay
+  int dY[] = {-1, 0, 0, 1, 0};
+  int dX[] = {0, -1, 1, 0, 0};
+  while (!q_empty(queue)) {
+    point_t *point = q_dequeue(queue);
+    if (point->y == bY && point->x == bX) {
+      time = point->m;
+      break;
+    }
+    for (int i = 0; i < 5; i++) {
+      point_t *newPoint = malloc(sizeof(point_t));
+      // escape hatch in case of failure
+      if (point->m >= 500) {
+        continue;
+      }
+      newPoint->y = point->y + dY[i];
+      newPoint->x = point->x + dX[i];
+      newPoint->m = point->m + 1;
+
+      if (isValid(newPoint->m, newPoint->y, newPoint->x)) {
+        q_enqueue(queue, newPoint);
+      } else {
+        free(newPoint);
+      }
+    }
+    free(point);
+  }
+  q_destroy(queue);
+
   if (time == -1) {
     fprintf(stdout, "no path!\n");
     exit(1);
@@ -249,7 +305,7 @@ int main() {
   readInput(__FILE__, lineHandler);
   calculateBlizzards();
 
-  // int partOneTime = aStar(startY, startX, endY, endX, 0);
+  // int partOneTime = DFS(startY, startX, endY, endX, 0);
   int partOneTime = 18;
   fprintf(stdout, "Part one: %d\n", partOneTime);
   // printMap();
@@ -259,9 +315,13 @@ int main() {
   assert(partOneTime == 326);
 #endif
 
-  int partTwoTime = aStar(endY, endX, startY, startX, partOneTime);
+  printf("map[startY][startX] = %c %d\n", map[startY][startX],
+         map[startY][startX]);
+  // TODO doesnt get right path lenghths or i am not adding them up properly
+  // DFS can't find a path from end->start
+  int partTwoTime = aStar(endY, endX, startY, startX, partOneTime + 1);
   fprintf(stdout, "back: %d\n", partTwoTime);
-  partTwoTime = aStar(startY, startX, endY, endX, partTwoTime);
+  partTwoTime += DFS(startY, startX, endY, endX, partTwoTime);
   fprintf(stdout, "Part two: %d\n", partTwoTime);
 #ifdef TEST_MODE
   assert(partTwoTime == 54);

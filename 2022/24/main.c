@@ -5,7 +5,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/types.h>
-// #define TEST_MODE
+#define TEST_MODE
 #include "../../lib/pqueue.h"
 #include "../../lib/queue.h"
 #include "../../utils.h"
@@ -183,28 +183,27 @@ int calculateCost(int aY, int aX, int bY, int bX) {
   return abs(aY - bY) + abs(aX - bX);
 }
 
-int main() {
-  readInput(__FILE__, lineHandler);
-  calculateBlizzards();
+// Number of minutes between a and b
+int aStar(int aY, int aX, int bY, int bX, int minute) {
+  int time = -1;
 
+  memset(visited, 0, sizeof(visited));
   pqueue_t *queue = pq_create();
   point_t *startPoint = malloc(sizeof(point_t));
-  startPoint->y = startY;
-  startPoint->x = startX;
-  startPoint->m = 0;
-  startPoint->cost = calculateCost(endY, endX, startPoint->y, startPoint->x);
+  startPoint->y = aY;
+  startPoint->x = aX;
+  startPoint->m = minute;
+  startPoint->cost = calculateCost(startPoint->y, startPoint->x, bY, bX);
   pq_enqueue(queue, startPoint, startPoint->cost);
 
-  fprintf(stdout, "end is at (%d, %d)\n", endY, endX);
+  fprintf(stdout, "%dm (%d, %d) --> (%d, %d)\n", minute, aY, aX, bY, bX);
 
   // north, south, east, west, stay
   int dY[] = {-1, 0, 0, 1, 0};
   int dX[] = {0, -1, 1, 0, 0};
-  int time = 0;
   while (!pq_empty(queue)) {
     point_t *point = pq_dequeue(queue);
-    if (point->y == endY && point->x == endX) {
-      fprintf(stdout, "exit found1!\n\n");
+    if (point->y == bY && point->x == bX) {
       time = point->m;
       break;
     }
@@ -225,7 +224,7 @@ int main() {
         // int gCost = calculateCost(startY, startX, newPoint->y, newPoint->x);
         int gCost = newPoint->cost;
         // distance from end
-        int hCost = calculateCost(endY, endX, newPoint->y, newPoint->x);
+        int hCost = calculateCost(bY, bX, newPoint->y, newPoint->x);
         int fCost = gCost + hCost;
         newPoint->cost = fCost;
         // if (newPoint->cost < point->cost) {
@@ -239,20 +238,34 @@ int main() {
     free(point);
   }
 
-  fprintf(stdout, "end is at (%d, %d) - %c %d\n", endY, endX, map[endY][endX],
-          map[endY][endX]);
-  fprintf(stdout, "Part one: %d\n", time);
+  if (time == -1) {
+    fprintf(stdout, "no path!\n");
+    exit(1);
+  }
+  return time;
+}
+
+int main() {
+  readInput(__FILE__, lineHandler);
+  calculateBlizzards();
+
+  // int partOneTime = aStar(startY, startX, endY, endX, 0);
+  int partOneTime = 18;
+  fprintf(stdout, "Part one: %d\n", partOneTime);
   // printMap();
 #ifdef TEST_MODE
-  assert(time == 18);
+  assert(partOneTime == 18);
 #else
-  assert(time == 326);
+  assert(partOneTime == 326);
 #endif
 
-  fprintf(stdout, "Part two: %d\n", 420);
+  int partTwoTime = aStar(endY, endX, startY, startX, partOneTime);
+  fprintf(stdout, "back: %d\n", partTwoTime);
+  partTwoTime = aStar(startY, startX, endY, endX, partTwoTime);
+  fprintf(stdout, "Part two: %d\n", partTwoTime);
 #ifdef TEST_MODE
-  assert(420 == 69);
+  assert(partTwoTime == 54);
 #else
-  // assert(420 == 69);
+  assert(partTwoTime == 69);
 #endif
 }

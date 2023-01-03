@@ -23,6 +23,7 @@ typedef struct valve_t {
   char *id;
   int flowRate;
   int state;
+  int minuteOpened;
   char *rawValves;
   int linkCount;
   struct valve_t **links;
@@ -47,6 +48,8 @@ void lineHandler(char *line) {
   strcpy(valve->id, id);
   valve->flowRate = flowRate;
   valve->linkCount = 0;
+  valve->state = CLOSED;
+  valve->minuteOpened = 0;
   valve->rawValves = calloc(20, sizeof(char));
   strcpy(valve->rawValves, valvesStr);
 
@@ -98,51 +101,37 @@ int doTheValveOpeningThing() {
   int pressure = 0;
   valve_t *currentValve = aaValve;
   for (int minute = 1; minute <= MAX_TIME; minute++) {
-    char openedId[3];
-    bool hasOpened = false;
-    // fprintf(stdout, "minute %d\n", minute);
     // can either move or open a valve
+
     // if current valve flow rate is 0, move
     if (currentValve->flowRate == 0) {
       currentValve =
           currentValve->links[RANDOM(0, currentValve->linkCount - 1)];
-      // fprintf(stdout, "moved to valve %s\n", currentValve->id);
     } else {
       // if current valve flow rate ISNT 0 and ISNT open, open it
-      if (currentValve->state == CLOSED) {
+      // TODO only decide to skip if next valve is more than double current and
+      // is open
+      if (currentValve->state == CLOSED && RANDOM(0, 4) > 0) {
         currentValve->state = OPEN;
-        // fprintf(stdout, "opened valve %s\n", currentValve->id);
-        hasOpened = true;
-        strcpy(openedId, currentValve->id);
+        currentValve->minuteOpened = minute;
       } else {
         // otherwise, move
         currentValve =
             currentValve->links[RANDOM(0, currentValve->linkCount - 1)];
-        // fprintf(stdout, "moved to valve %s\n", currentValve->id);
       }
     }
-
-    // at the end, count the pressure released in the minute and add to total
-    int pressureReleased = 0;
-    // fprintf(stdout, "open valves: ");
-    for (int i = 0; i < valveCount; i++) {
-      if (allValves[i]->state == OPEN) {
-        // fprintf(stdout, "%s, ", allValves[i]->id);
-        if (hasOpened) {
-          if (strcmp(allValves[i]->id, openedId) != 0) {
-            pressureReleased += allValves[i]->flowRate;
-          }
-        } else {
-          pressureReleased += allValves[i]->flowRate;
-        }
-      }
-    }
-    // fprintf(stdout, "\n");
-    pressure += pressureReleased;
   }
-  // reset valves after
+
+  // at the end, sum the pressure released since the minute the valve opened and
+  // add to total
   for (int i = 0; i < valveCount; i++) {
-    allValves[i]->state = CLOSED;
+    valve_t *valve = allValves[i];
+    if (valve->minuteOpened) {
+      pressure += valve->flowRate * (MAX_TIME - valve->minuteOpened);
+    }
+    // reset valves after counting for next run
+    valve->state = CLOSED;
+    valve->minuteOpened = 0;
   }
   return pressure;
 }
@@ -164,8 +153,9 @@ int doTheValveOpeningThingButWithAnElephant() {
       // fprintf(stdout, "moved to valve %s\n", currentValve->id);
     } else {
       // if current valve flow rate ISNT 0 and ISNT open, open it
-      if (currentValve->state == CLOSED) {
+      if (currentValve->state == CLOSED && RANDOM(0, 4) > 0) {
         currentValve->state = OPEN;
+        // currentValve-> minuteOpened
         // fprintf(stdout, "opened valve %s\n", currentValve->id);
         hasOpened = true;
         strcpy(openedId, currentValve->id);
@@ -182,7 +172,7 @@ int doTheValveOpeningThingButWithAnElephant() {
       elephantValve =
           elephantValve->links[RANDOM(0, elephantValve->linkCount - 1)];
     } else {
-      if (elephantValve->state == CLOSED) {
+      if (elephantValve->state == CLOSED && RANDOM(0, 4) > 0) {
         elephantValve->state = OPEN;
         hasOpenedElephant = true;
         strcpy(openedIdElephant, elephantValve->id);
@@ -223,19 +213,38 @@ int main() {
   srand(time(NULL));
   connectValves();
 
-  int maxResult = 0;
-  for (int i = 0; i < MAX_ITERATIONS; i++) {
-    // while (1) {
-    maxResult = max(doTheValveOpeningThing(), maxResult);
-    if (maxResult == 1896)
-      break;
-  }
+  clock_t t;
+  t = clock();
 
+  int maxResult = 0;
+  int i = 1;
+  for (; i < MAX_ITERATIONS; i++) {
+    // while (i++) {
+    maxResult = max(doTheValveOpeningThing(), maxResult);
+#ifdef TEST_MODE
+    // if (maxResult == 1651)
+    // break;
+#else
+    // if (maxResult == 1896)
+    // break;
+#endif
+  }
+  t = clock() - t;
+  double time_taken =
+      (((double)t) / CLOCKS_PER_SEC) / MAX_ITERATIONS; // in seconds
+  double total_time = time_taken * MAX_ITERATIONS;
+
+  printf("doTheValveOpeningThing() took %fs / %fms / %fus to execute\n",
+         time_taken, time_taken * 1000, time_taken * 1000 * 1000);
+  printf("total time was %.2fs / %.2f m / %.2f h \n", total_time,
+         total_time / 60, total_time / 60 / 60);
+
+  fprintf(stdout, "i: %d\n", i);
   fprintf(stdout, "Part one: %d\n", maxResult);
 
 #ifdef TEST_MODE
   // I could never get it working for the example :c
-  assert(maxResult == 1);
+  assert(maxResult == 1651);
 #else
   // assert(maxResult == 1896);
 #endif
@@ -251,7 +260,7 @@ int main() {
       maxResultWithAnElephant = result;
     }
     // if (maxResultWithAnElephant == 1896)
-    // break;
+    break;
   }
 
   fprintf(stdout, "Part two: %d\n", maxResultWithAnElephant);

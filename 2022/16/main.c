@@ -9,7 +9,7 @@
 #include <string.h>
 #include <sys/types.h>
 #include <time.h>
-// #define TEST_MODE
+#define TEST_MODE
 #include "../../utils.h"
 
 #define MAX_TIME 30
@@ -25,12 +25,14 @@ typedef struct valve_t {
   int state;
   char *rawValves;
   int linkCount;
-  struct valve_t *links[10];
+  struct valve_t **links;
 } valve_t;
 
-valve_t *allValves[100] = {0};
+valve_t **allValves = NULL;
 int valveCount = 0;
 valve_t *aaValve = NULL;
+
+void fileHandler(int lines) { allValves = malloc(sizeof(valve_t *) * lines); }
 
 void lineHandler(char *line) {
   fprintf(stdout, "line: %s\n", line);
@@ -61,6 +63,15 @@ void connectValves() {
     fprintf(stdout, "valve %s -> rate %d -> valves '%s'\n", valve->id,
             valve->flowRate, valve->rawValves);
 
+    int linkCount = 1;
+
+    for (char *c = valve->rawValves; *c; c++) {
+      if (*c == ',') {
+        linkCount++;
+      }
+    }
+
+    valve->links = malloc(sizeof(valve_t *) * linkCount);
     char *valveEnd;
     char *valveToken = strtok_r(valve->rawValves, ", ", &valveEnd);
     do {
@@ -208,14 +219,14 @@ int doTheValveOpeningThingButWithAnElephant() {
 }
 
 int main() {
-  readInput(__FILE__, lineHandler);
+  readInputFile(__FILE__, lineHandler, fileHandler);
   srand(time(NULL));
   connectValves();
 
   int maxResult = 0;
   for (int i = 0; i < MAX_ITERATIONS; i++) {
     // while (1) {
-    // maxResult = max(doTheValveOpeningThing(), maxResult);
+    maxResult = max(doTheValveOpeningThing(), maxResult);
     if (maxResult == 1896)
       break;
   }

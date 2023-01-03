@@ -99,26 +99,31 @@ void connectValves() {
 
 int doTheValveOpeningThing() {
   int pressure = 0;
+  int maxTime = MAX_TIME;
   valve_t *currentValve = aaValve;
-  for (int minute = 1; minute <= MAX_TIME; minute++) {
+  for (int minute = 1; minute <= maxTime; minute++) {
     // can either move or open a valve
 
-    // if current valve flow rate is 0, move
-    if (currentValve->flowRate == 0) {
-      currentValve =
-          currentValve->links[RANDOM(0, currentValve->linkCount - 1)];
+    valve_t *nextValve =
+        currentValve->links[RANDOM(0, currentValve->linkCount - 1)];
+
+    // if current valve flow rate is 0 or we are already open, move
+    if (currentValve->flowRate == 0 || currentValve->state == OPEN) {
+      currentValve = nextValve;
+      continue;
+    }
+    // if current valve flow rate ISNT 0 and ISNT open, open it
+    // TODO only decide to skip if next valve is more than double current and
+    // is closed or something
+    // bool shouldOpen = nextValve->state == CLOSED && nextValve->flowRate != 0 &&
+                      // RANDOM(0, 4) > 3;
+    // bool shouldOpen = nextValve->state == CLOSED || nextValve->flowRate == 0 ||
+                      // RANDOM(0, 4) > 0;
+    if (currentValve->state == CLOSED && RANDOM(0, 4) > 0) {
+      currentValve->state = OPEN;
+      currentValve->minuteOpened = minute;
     } else {
-      // if current valve flow rate ISNT 0 and ISNT open, open it
-      // TODO only decide to skip if next valve is more than double current and
-      // is open
-      if (currentValve->state == CLOSED && RANDOM(0, 4) > 0) {
-        currentValve->state = OPEN;
-        currentValve->minuteOpened = minute;
-      } else {
-        // otherwise, move
-        currentValve =
-            currentValve->links[RANDOM(0, currentValve->linkCount - 1)];
-      }
+      currentValve = nextValve;
     }
   }
 
@@ -127,7 +132,7 @@ int doTheValveOpeningThing() {
   for (int i = 0; i < valveCount; i++) {
     valve_t *valve = allValves[i];
     if (valve->minuteOpened) {
-      pressure += valve->flowRate * (MAX_TIME - valve->minuteOpened);
+      pressure += valve->flowRate * (maxTime - valve->minuteOpened);
     }
     // reset valves after counting for next run
     valve->state = CLOSED;
@@ -138,9 +143,10 @@ int doTheValveOpeningThing() {
 
 int doTheValveOpeningThingButWithAnElephant() {
   int pressure = 0;
+  int maxTime = MAX_TIME - 4;
   valve_t *currentValve = aaValve;
   valve_t *elephantValve = aaValve;
-  for (int minute = 1; minute <= MAX_TIME - 4; minute++) {
+  for (int minute = 1; minute <= maxTime; minute++) {
     char openedId[3];
     char openedIdElephant[3];
     bool hasOpened = false;

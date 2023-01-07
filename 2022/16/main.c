@@ -3,6 +3,7 @@
 // be `valves XX`
 #include <assert.h>
 #include <ctype.h>
+#include <limits.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -21,12 +22,17 @@ enum state { CLOSED = 0, OPEN = 1 };
 
 typedef struct valve_t {
   char *id;
+  // i guess for some kind of search operation
+  u_int64_t idBit;
   int flowRate;
   int state;
   int minuteOpened;
   char *rawValves;
   int linkCount;
   struct valve_t **links;
+  // the cost (in minutes) to move from this valve to any of the other valves
+  u_int16_t *valveWeights;
+  int index;
 } valve_t;
 
 valve_t **allValves = NULL;
@@ -46,6 +52,9 @@ void lineHandler(char *line) {
   valve_t *valve = malloc(sizeof(valve_t));
   valve->id = calloc(3, sizeof(char));
   strcpy(valve->id, id);
+  // TODO overflows
+  valve->idBit = 1 << valveCount;
+  valve->index = valveCount;
   valve->flowRate = flowRate;
   valve->linkCount = 0;
   valve->state = CLOSED;
@@ -63,8 +72,8 @@ void lineHandler(char *line) {
 void connectValves() {
   for (int i = 0; i < valveCount; i++) {
     valve_t *valve = allValves[i];
-    fprintf(stdout, "valve %s -> rate %d -> valves '%s'\n", valve->id,
-            valve->flowRate, valve->rawValves);
+    fprintf(stdout, "valve %s (%ld) -> rate %d -> valves '%s'\n", valve->id,
+            valve->idBit, valve->flowRate, valve->rawValves);
 
     int linkCount = 1;
 
@@ -97,6 +106,80 @@ void connectValves() {
   }
 }
 
+// Floyd-Warshall
+void calculateDistances() {
+  fprintf(stdout, "Floyd-Warshall'ing\n");
+  // let dist be a |V| × |V| array of minimum distances initialized to ∞
+  u_int16_t dist[valveCount][valveCount];
+  memset(dist, INT_MAX, sizeof(dist));
+  // for each edge (u, v) do
+  // dist[u][v] ← w(u, v)  // The weight of the edge (u, v)
+  // We just explore the entire valve array and set each valid link to 1
+  // I believe this is an adjacency matrix of our graph
+  for (int u = 0; u < valveCount; u++) {
+    valve_t *valve = allValves[u];
+    fprintf(stdout, "valve %s\n", valve->id);
+    for (int v = 0; v < valve->linkCount; v++) {
+      dist[u][valve->links[v]->index] = 1;
+    }
+  }
+  // for each vertex v do
+  // dist[v][v] ← 0
+  for (int v = 0; v < valveCount; v++) {
+    dist[v][v] = 0;
+  }
+
+  // for k from 1 to |V|
+  for (int k = 0; k < valveCount; k++) {
+    // for i from 1 to |V|
+    for (int i = 0; i < valveCount; i++) {
+      // for j from 1 to |V|
+      for (int j = 0; j < valveCount; j++) {
+        // fprintf(stdout, "%d ", dist[i][j]);
+        if (dist[i][j] > dist[i][k] + dist[k][j]) {
+          dist[i][j] = dist[i][k] + dist[k][j];
+        }
+      }
+    }
+  }
+
+  // debug print for visibility
+  for (int i = 0; i < valveCount; i++) {
+    for (int j = 0; j < valveCount; j++) {
+      fprintf(stdout, "%d ", dist[i][j]);
+    }
+    fprintf(stdout, "\n");
+  }
+
+  for (int a = 0; a < valveCount; a++) {
+    valve_t *aValve = allValves[a];
+    // setup valveWeights array
+    // which is an array of int to each valve that has a flowRate
+    // only for AA or flowRate > 0
+    aValve->valveWeights = calloc(valveCount, sizeof(int));
+    if (aValve->flowRate != 0 || strcmp(aValve->id, "AA") == 0) {
+      for (int b = 0; b < valveCount; b++) {
+        valve_t *bValve = allValves[b];
+        if (bValve->flowRate != 0) {
+          // only set connections to valves with a positive flowRate
+          aValve->valveWeights[b] = dist[a][b];
+        }
+      }
+    }
+  }
+
+  // debug print for visibility
+  for (int i = 0; i < valveCount; i++) {
+    valve_t *valve = allValves[i];
+
+    fprintf(stdout, "valve %s, weights: ", valve->id);
+    for (int j = 0; j < valveCount; j++) {
+      fprintf(stdout, "%d: %d ", j, valve->valveWeights[j]);
+    }
+    fprintf(stdout, "\n");
+  }
+}
+
 int doTheValveOpeningThing() {
   int pressure = 0;
   int maxTime = MAX_TIME;
@@ -115,9 +198,11 @@ int doTheValveOpeningThing() {
     // if current valve flow rate ISNT 0 and ISNT open, open it
     // TODO only decide to skip if next valve is more than double current and
     // is closed or something
-    // bool shouldOpen = nextValve->state == CLOSED && nextValve->flowRate != 0
+    // bool shouldOpen = nextValve->state == CLOSED && nextValve->flowRate !=
+    // 0
     // && RANDOM(0, 4) > 3;
-    // bool shouldOpen = nextValve->state == CLOSED || nextValve->flowRate == 0
+    // bool shouldOpen = nextValve->state == CLOSED || nextValve->flowRate ==
+    // 0
     // || RANDOM(0, 4) > 0;
     if (currentValve->state == CLOSED && RANDOM(0, 4) > 0) {
       currentValve->state = OPEN;
@@ -127,8 +212,8 @@ int doTheValveOpeningThing() {
     }
   }
 
-  // at the end, sum the pressure released since the minute the valve opened and
-  // add to total
+  // at the end, sum the pressure released since the minute the valve opened
+  // and add to total
   for (int i = 0; i < valveCount; i++) {
     valve_t *valve = allValves[i];
     if (valve->minuteOpened) {
@@ -148,8 +233,7 @@ int doTheValveOpeningThingButWithAnElephant() {
   valve_t *currentElephantValve = aaValve;
   for (int minute = 1; minute <= maxTime; minute++) {
     int linkIndex = RANDOM(0, currentValve->linkCount - 1);
-    valve_t *nextValve =
-        currentValve->links[linkIndex];
+    valve_t *nextValve = currentValve->links[linkIndex];
 
     if (currentValve->flowRate == 0 || currentValve->state == OPEN) {
       currentValve = nextValve;
@@ -164,10 +248,10 @@ int doTheValveOpeningThingButWithAnElephant() {
 
     // elephant
     int elephantLinkIndex = RANDOM(0, currentElephantValve->linkCount - 1);
-    valve_t *nextElephantValve =
-        currentElephantValve->links[elephantLinkIndex];
+    valve_t *nextElephantValve = currentElephantValve->links[elephantLinkIndex];
 
-    if (currentElephantValve->flowRate == 0 || currentElephantValve->state == OPEN) {
+    if (currentElephantValve->flowRate == 0 ||
+        currentElephantValve->state == OPEN) {
       currentElephantValve = nextElephantValve;
       continue;
     }
@@ -196,7 +280,7 @@ int main() {
   readInputFile(__FILE__, lineHandler, fileHandler);
   srand(time(NULL));
   connectValves();
-
+  calculateDistances();
 
   int maxResult = 1651;
   int i = 1;
@@ -234,7 +318,7 @@ int main() {
       fprintf(stdout, "new max: %d\n", result);
       maxResultWithAnElephant = result;
     }
-      break;
+    break;
 #ifdef TEST_MODE
     if (maxResultWithAnElephant == 1707)
       break;
@@ -249,8 +333,8 @@ int main() {
       (((double)t) / CLOCKS_PER_SEC) / MAX_ITERATIONS; // in seconds
   double total_time = time_taken * MAX_ITERATIONS;
 
-  printf("took %fs / %fms / %fus to execute\n",
-         time_taken, time_taken * 1000, time_taken * 1000 * 1000);
+  printf("took %fs / %fms / %fus to execute\n", time_taken, time_taken * 1000,
+         time_taken * 1000 * 1000);
   printf("total time was %.2fs / %.2f m / %.2f h \n", total_time,
          total_time / 60, total_time / 60 / 60);
   //

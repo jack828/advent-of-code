@@ -11,18 +11,17 @@
 #include <sys/types.h>
 #include <time.h>
 #define TEST_MODE
+#include "../../lib/queue.h"
 #include "../../utils.h"
 
 #define MAX_TIME 30
 #define MAX_ITERATIONS 10000000
-// #define RANDOM(x) (rand() / ((RAND_MAX + 1u) / x))
 #define RANDOM(min, max) ((rand() % (max - min + 1)) + min)
 
 enum state { CLOSED = 0, OPEN = 1 };
 
 typedef struct valve_t {
   char *id;
-  // i guess for some kind of search operation
   u_int64_t idBit;
   int flowRate;
   int state;
@@ -38,6 +37,15 @@ typedef struct valve_t {
 valve_t **allValves = NULL;
 int valveCount = 0;
 valve_t *aaValve = NULL;
+u_int64_t idBit = 1;
+u_int64_t positiveValveIdBits = 0;
+
+typedef struct graph_t {
+  u_int64_t ids;
+  int currentIndex;
+  int minute;
+  int pressure;
+} graph_t;
 
 void fileHandler(int lines) { allValves = malloc(sizeof(valve_t *) * lines); }
 
@@ -52,8 +60,7 @@ void lineHandler(char *line) {
   valve_t *valve = malloc(sizeof(valve_t));
   valve->id = calloc(3, sizeof(char));
   strcpy(valve->id, id);
-  // TODO overflows
-  valve->idBit = 1 << valveCount;
+  valve->idBit = 0;
   valve->index = valveCount;
   valve->flowRate = flowRate;
   valve->linkCount = 0;
@@ -61,6 +68,12 @@ void lineHandler(char *line) {
   valve->minuteOpened = 0;
   valve->rawValves = calloc(20, sizeof(char));
   strcpy(valve->rawValves, valvesStr);
+
+  if (valve->flowRate > 0) {
+    valve->idBit = idBit;
+    positiveValveIdBits |= idBit;
+    idBit <<= 1;
+  }
 
   fprintf(stdout, "valve %s -> rate %d -> valves '%s'\n", valve->id,
           valve->flowRate, valve->rawValves);
@@ -118,7 +131,6 @@ void calculateDistances() {
   // I believe this is an adjacency matrix of our graph
   for (int u = 0; u < valveCount; u++) {
     valve_t *valve = allValves[u];
-    fprintf(stdout, "valve %s\n", valve->id);
     for (int v = 0; v < valve->linkCount; v++) {
       dist[u][valve->links[v]->index] = 1;
     }
@@ -180,50 +192,78 @@ void calculateDistances() {
   }
 }
 
-int doTheValveOpeningThing() {
-  int pressure = 0;
+// DFS (or maybe BFS, i have no idea) search of all possible ways to visit each
+// positive flowRate valve in the allowed time
+int exploreValves() {
+  int maxPressure = -1;
+
   int maxTime = MAX_TIME;
-  valve_t *currentValve = aaValve;
-  for (int minute = 1; minute <= maxTime; minute++) {
-    // can either move or open a valve
+  queue_t *queue = q_create();
+  graph_t *graphStart = malloc(sizeof(graph_t));
+  graphStart->ids = aaValve->idBit;
+  graphStart->currentIndex = aaValve->index;
+  graphStart->minute = 1;
+  graphStart->pressure = 0;
+  q_enqueue(queue, graphStart);
 
-    valve_t *nextValve =
-        currentValve->links[RANDOM(0, currentValve->linkCount - 1)];
+  queue_t *endQueue = q_create();
 
-    // if current valve flow rate is 0 or we are already open, move
-    if (currentValve->flowRate == 0 || currentValve->state == OPEN) {
-      currentValve = nextValve;
+  while (!q_empty(queue)) {
+    graph_t *graph = q_dequeue(queue);
+    // fprintf(stdout, "graph %lu, minute %d, pressure %d\n", graph->ids,
+    // graph->minute, graph->pressure);
+    // break if all are visited or if we have reached the time limit
+    if (graph->ids == positiveValveIdBits || graph->minute == maxTime) {
+      // fprintf(stdout, "end graph %lu, minute %d, pressure %d\n", graph->ids,
+      // graph->minute, graph->pressure);
+      q_enqueue(endQueue, graph);
       continue;
     }
-    // if current valve flow rate ISNT 0 and ISNT open, open it
-    // TODO only decide to skip if next valve is more than double current and
-    // is closed or something
-    // bool shouldOpen = nextValve->state == CLOSED && nextValve->flowRate !=
-    // 0
-    // && RANDOM(0, 4) > 3;
-    // bool shouldOpen = nextValve->state == CLOSED || nextValve->flowRate ==
-    // 0
-    // || RANDOM(0, 4) > 0;
-    if (currentValve->state == CLOSED && RANDOM(0, 4) > 0) {
-      currentValve->state = OPEN;
-      currentValve->minuteOpened = minute;
-    } else {
-      currentValve = nextValve;
-    }
-  }
 
-  // at the end, sum the pressure released since the minute the valve opened
-  // and add to total
-  for (int i = 0; i < valveCount; i++) {
-    valve_t *valve = allValves[i];
-    if (valve->minuteOpened) {
-      pressure += valve->flowRate * (maxTime - valve->minuteOpened);
+    bool canMove = false;
+    for (int i = 0; i < valveCount; i++) {
+      valve_t *valve = allValves[i];
+      int valveMoveTime = allValves[graph->currentIndex]->valveWeights[i];
+
+      // for every positive valve
+      // that we have not yet visited
+      // that we can move and open in the time limit
+      if (valve->flowRate > 0 && (graph->ids & valve->idBit) == 0 &&
+          graph->minute + valveMoveTime + 1 < maxTime) {
+        graph_t *newGraph = malloc(sizeof(graph_t));
+        newGraph->ids = graph->ids;
+        newGraph->ids |= valve->idBit;
+        newGraph->currentIndex = valve->index;
+        newGraph->minute = graph->minute + valveMoveTime + 1;
+        newGraph->pressure =
+            graph->pressure +
+            (valve->flowRate * (maxTime - graph->minute - valveMoveTime - 0));
+        q_enqueue(queue, newGraph);
+        canMove = true;
+      }
     }
-    // reset valves after counting for next run
-    valve->state = CLOSED;
-    valve->minuteOpened = 0;
+    // reached a configuration that can't progress in time limit
+    if (!canMove) {
+      // fprintf(stdout, "cant move graph %lu, minute %d, pressure %d\n",
+      // graph->ids, graph->minute, graph->pressure);
+      q_enqueue(endQueue, graph);
+      continue;
+    }
+    free(graph);
   }
-  return pressure;
+  q_destroy(queue);
+
+  while (!q_empty(endQueue)) {
+    graph_t *graph = q_dequeue(endQueue);
+    if (graph->pressure > maxPressure) {
+      // fprintf(stdout, "new max: %d\n", graph->pressure);
+      maxPressure = graph->pressure;
+    }
+    free(graph);
+  }
+  q_destroy(endQueue);
+
+  return maxPressure;
 }
 
 int doTheValveOpeningThingButWithAnElephant() {
@@ -282,34 +322,35 @@ int main() {
   connectValves();
   calculateDistances();
 
-  int maxResult = 1651;
-  int i = 1;
-  // for (; i < MAX_ITERATIONS; i++) {
-  while (i++) {
-    maxResult = max(doTheValveOpeningThing(), maxResult);
-#ifdef TEST_MODE
-    if (maxResult == 1651)
-      break;
-#else
-    if (maxResult == 1896)
-      break;
-#endif
-  }
+  int partOne = exploreValves();
 
-  fprintf(stdout, "i: %d\n", i);
-  fprintf(stdout, "Part one: %d\n", maxResult);
+  fprintf(stdout, "Part one: %d\n", partOne);
 
 #ifdef TEST_MODE
-  assert(maxResult == 1651);
+  assert(partOne == 1651);
 #else
-  assert(maxResult == 1896);
+  assert(partOne == 1896);
 #endif
 
-  // TODO gunna need to do something smart
-  // https://en.wikipedia.org/wiki/Floyd%E2%80%93Warshall_algorithm
-
+  /* leaving in case it's needed another time
+  int iterTimes = 1000;
   clock_t t;
   t = clock();
+
+  for (int i = 0; i < iterTimes; i++) {
+    exploreValves();
+  }
+  t = clock() - t;
+  double time_taken =
+      (((double)t) / CLOCKS_PER_SEC) / MAX_ITERATIONS; // in seconds
+  double total_time = time_taken * MAX_ITERATIONS;
+
+  printf("took %fs / %fms / %fus to execute\n", time_taken, time_taken * 1000,
+         time_taken * 1000 * 1000);
+  printf("total time was %.2fs / %.2f m / %.2f h \n", total_time,
+         total_time / 60, total_time / 60 / 60);
+  */
+
   int maxResultWithAnElephant = 0; // 2409;
   // for (int i = 0; i < MAX_ITERATIONS; i++) {
   while (1) {
@@ -327,17 +368,7 @@ int main() {
       break;
 #endif
   }
-  // leaving in case it's needed another time
-  t = clock() - t;
-  double time_taken =
-      (((double)t) / CLOCKS_PER_SEC) / MAX_ITERATIONS; // in seconds
-  double total_time = time_taken * MAX_ITERATIONS;
 
-  printf("took %fs / %fms / %fus to execute\n", time_taken, time_taken * 1000,
-         time_taken * 1000 * 1000);
-  printf("total time was %.2fs / %.2f m / %.2f h \n", total_time,
-         total_time / 60, total_time / 60 / 60);
-  //
   fprintf(stdout, "Part two: %d\n", maxResultWithAnElephant);
 #ifdef TEST_MODE
   assert(maxResultWithAnElephant == 1707);

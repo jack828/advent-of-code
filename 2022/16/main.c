@@ -84,7 +84,7 @@ void lineHandler(char *line) {
   }
 
   // fprintf(stdout, "valve %s -> rate %d -> valves '%s'\n", valve->id,
-          // valve->flowRate, valve->rawValves);
+  // valve->flowRate, valve->rawValves);
   allValves[valveCount++] = valve;
 
   fputs("\n", stdout);
@@ -94,7 +94,7 @@ void connectValves() {
   for (int i = 0; i < valveCount; i++) {
     valve_t *valve = allValves[i];
     // fprintf(stdout, "valve %s (%ld) -> rate %d -> valves '%s'\n", valve->id,
-            // valve->idBit, valve->flowRate, valve->rawValves);
+    // valve->idBit, valve->flowRate, valve->rawValves);
 
     int linkCount = 1;
 
@@ -152,7 +152,6 @@ void calculateDistances() {
     for (int i = 0; i < valveCount; i++) {
       // for j from 1 to |V|
       for (int j = 0; j < valveCount; j++) {
-        // fprintf(stdout, "%d ", dist[i][j]);
         if (dist[i][j] > dist[i][k] + dist[k][j]) {
           dist[i][j] = dist[i][k] + dist[k][j];
         }
@@ -217,12 +216,8 @@ int exploreValves() {
 
   while (!q_empty(queue)) {
     graph_t *graph = q_dequeue(queue);
-    // fprintf(stdout, "graph %lu, minute %d, pressure %d\n", graph->ids,
-    // graph->minute, graph->pressure);
     // break if all are visited or if we have reached the time limit
     if (graph->ids == positiveValveIdBits || graph->minute == maxTime) {
-      // fprintf(stdout, "end graph %lu, minute %d, pressure %d\n", graph->ids,
-      // graph->minute, graph->pressure);
       q_enqueue(endQueue, graph);
       continue;
     }
@@ -251,8 +246,6 @@ int exploreValves() {
     }
     // reached a configuration that can't progress in time limit
     if (!canMove) {
-      // fprintf(stdout, "cant move graph %lu, minute %d, pressure %d\n",
-      // graph->ids, graph->minute, graph->pressure);
       q_enqueue(endQueue, graph);
       continue;
     }
@@ -263,7 +256,6 @@ int exploreValves() {
   while (!q_empty(endQueue)) {
     graph_t *graph = q_dequeue(endQueue);
     if (graph->pressure > maxPressure) {
-      // fprintf(stdout, "new max: %d\n", graph->pressure);
       maxPressure = graph->pressure;
     }
     free(graph);
@@ -271,6 +263,20 @@ int exploreValves() {
   q_destroy(endQueue);
 
   return maxPressure;
+}
+
+// qsort passes pointers to the array elements to compare even if they are
+// already pointers
+int compare(const void *a, const void *b) {
+  const graph_t *graph_a = *(const graph_t **)a;
+  const graph_t *graph_b = *(const graph_t **)b;
+
+  if (graph_a->pressure == graph_b->pressure)
+    return 0;
+  else if (graph_a->pressure > graph_b->pressure)
+    return -1;
+  else
+    return 1;
 }
 
 // same as above, but elephant must visit a different valve than the human
@@ -290,18 +296,13 @@ int exploreValvesWithElephant() {
 
   queue_t *endQueue = q_create();
 
-  // fprintf(stdout, "max valves: %d\n", maxValves);
   while (!q_empty(queue)) {
     graph_t *graph = q_dequeue(queue);
-    // fprintf(stdout, "graph %lu, visited %d, minute %d, pressure %d\n",
-    // graph->ids, graph->visited, graph->minute, graph->pressure);
     // break if all are visited
     // or if we have reached the time limit
     // or if we have reached maxValves
     if (graph->ids == positiveValveIdBits || graph->minute == maxTime ||
         graph->visited == maxValves) {
-      // fprintf(stdout, "end graph %lu, minute %d, pressure %d\n", graph->ids,
-      // graph->minute, graph->pressure);
       q_enqueue(endQueue, graph);
       continue;
     }
@@ -331,8 +332,6 @@ int exploreValvesWithElephant() {
     }
     // reached a configuration that can't progress in time limit
     if (!canMove) {
-      // fprintf(stdout, "cant move graph %lu, minute %d, pressure %d\n",
-      // graph->ids, graph->minute, graph->pressure);
       q_enqueue(endQueue, graph);
       continue;
     }
@@ -348,11 +347,14 @@ int exploreValvesWithElephant() {
     endArray[endIndex++] = graph;
   }
 
-  for (int a = 0; a < endIndex; a++) {
+  qsort(endArray, endIndex, sizeof(graph_t *), compare);
+
+  // TODO room for improvement here, how do we prune?
+  for (int a = 0; a < endIndex / 2; a++) {
     // find the highest disjointed combination of nodes
     graph_t *aGraph = endArray[a];
 
-    for (int b = 0; b < endIndex; b++) {
+    for (int b = 0; b < endIndex / 2; b++) {
       graph_t *bGraph = endArray[b];
       // if each set of ids is different then we will get zero
       // 0010 & 0100 == 0000
@@ -365,6 +367,10 @@ int exploreValvesWithElephant() {
       }
     }
   }
+  for (int i = 0; i < endIndex; i++) {
+    free(endArray[i]);
+  }
+  free(endArray);
   q_destroy(endQueue);
 
   return maxPressure;
@@ -386,8 +392,8 @@ int main() {
   assert(partOne == 1896);
 #endif
 
-  /* leaving in case it's needed another time
-  int iterTimes = 10;
+  // leaving in case it's needed another time
+  int iterTimes = 2;
   clock_t t;
   t = clock();
 
@@ -395,15 +401,14 @@ int main() {
     exploreValvesWithElephant();
   }
   t = clock() - t;
-  double time_taken =
-      (((double)t) / CLOCKS_PER_SEC) / iterTimes; // in seconds
+  double time_taken = (((double)t) / CLOCKS_PER_SEC) / iterTimes; // in seconds
   double total_time = time_taken * iterTimes;
 
   printf("took %fs / %fms / %fus to execute\n", time_taken, time_taken * 1000,
          time_taken * 1000 * 1000);
   printf("total time was %.2fs / %.2f m / %.2f h \n", total_time,
          total_time / 60, total_time / 60 / 60);
-  */
+  //
 
   int partTwo = exploreValvesWithElephant();
 

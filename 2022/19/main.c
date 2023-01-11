@@ -6,11 +6,12 @@
 #include <string.h>
 #include <sys/types.h>
 #include <time.h>
-#define TEST_MODE
+// #define TEST_MODE
 #include "../../lib/queue.h"
 #include "../../utils.h"
 
 #define MAX_TIME 24
+#define MAX_TIME_BUT_ELEPHANTS_GOT_HUNGRY 32
 
 typedef struct cost_t {
   int ore;
@@ -118,6 +119,17 @@ simulation_t *cloneSim(simulation_t *srcSim) {
 
 int max4(int a, int b, int c, int d) { return max(a, max(b, max(c, d))); }
 
+// return true if we could have built it last turn - this assumes we didn't and
+// waited
+bool couldHaveBuilt(simulation_t *sim, cost_t *cost) {
+  cost_t prevResources = {.ore = sim->ore - sim->oreRobots,
+                          .clay = sim->ore - sim->clayRobots,
+                          .obsidian = sim->ore - sim->obsidianRobots};
+
+  return prevResources.ore >= cost->ore && prevResources.clay >= cost->clay &&
+         prevResources.obsidian >= cost->obsidian;
+}
+
 // runs the simulation and returns the highest number of geodes possible
 int run(blueprint_t *blueprint, int maxTime) {
   simulation_t *simStart = malloc(sizeof(simulation_t));
@@ -149,8 +161,8 @@ int run(blueprint_t *blueprint, int maxTime) {
                             blueprint->obsidianRobotCost->obsidian,
                             blueprint->geodeRobotCost->obsidian);
 
-  fprintf(stdout, "blueprint %d - max: %d ore %d clay %d obsidian\n",
-          blueprint->id, maxCosts->ore, maxCosts->clay, maxCosts->obsidian);
+  // fprintf(stdout, "blueprint %d - max: %d ore %d clay %d obsidian\n",
+          // blueprint->id, maxCosts->ore, maxCosts->clay, maxCosts->obsidian);
 
   int maxQueueSize = 0;
   int maxGeodes = 0;
@@ -208,6 +220,7 @@ int run(blueprint_t *blueprint, int maxTime) {
 
       // can we make an ore robot
       if (sim->oreRobots < maxCosts->ore &&
+          !couldHaveBuilt(sim, blueprint->oreRobotCost) &&
           canAfford(sim, blueprint->oreRobotCost)) {
         simulation_t *newSim = cloneSim(sim);
         buyRobot(newSim, blueprint->oreRobotCost);
@@ -226,6 +239,7 @@ int run(blueprint_t *blueprint, int maxTime) {
 
       // can we make a obsidian robot, and is it worth building
       if (sim->obsidianRobots < maxCosts->obsidian &&
+          !couldHaveBuilt(sim, blueprint->obsidianRobotCost) &&
           canAfford(sim, blueprint->obsidianRobotCost)) {
         simulation_t *newSim = cloneSim(sim);
         buyRobot(newSim, blueprint->obsidianRobotCost);
@@ -236,6 +250,7 @@ int run(blueprint_t *blueprint, int maxTime) {
 
       // can we make a clay robot
       if (sim->clayRobots < maxCosts->clay &&
+          !couldHaveBuilt(sim, blueprint->clayRobotCost) &&
           canAfford(sim, blueprint->clayRobotCost)) {
         simulation_t *newSim = cloneSim(sim);
         buyRobot(newSim, blueprint->clayRobotCost);
@@ -250,12 +265,14 @@ int run(blueprint_t *blueprint, int maxTime) {
   }
   q_destroy(queue);
 
-  fprintf(stdout, "max queue size: %d\n", maxQueueSize);
+  // fprintf(stdout, "max queue size: %d\n", maxQueueSize);
+  // fprintf(stdout, "max geodes: %d\n", maxGeodes);
   return maxGeodes;
 }
 
 int main() {
   readInputFile(__FILE__, lineHandler, fileHandler);
+  /* debug print
   for (int i = 0; i < blueprintIndex; i++) {
     blueprint_t *blueprint = blueprints[i];
     fprintf(stdout, "Blueprint: %d\n", blueprint->id);
@@ -273,18 +290,13 @@ int main() {
             blueprint->geodeRobotCost->ore, blueprint->geodeRobotCost->clay,
             blueprint->geodeRobotCost->obsidian);
   }
+  */
 
   int qualityLevelSum = 0;
-  for (int i = 0; i < blueprintIndex ; i++) {
+  for (int i = 0; i < blueprintIndex; i++) {
     blueprint_t *blueprint = blueprints[i];
-    int maxGeodes = run(blueprint);
-    clock_t t;
-    t = clock();
-    t = clock() - t;
-    double time_taken = (((double)t) / CLOCKS_PER_SEC); // in seconds
+    int maxGeodes = run(blueprint, MAX_TIME);
 
-    printf("took %fs / %fms / %fus to execute\n\n", time_taken,
-           time_taken * 1000, time_taken * 1000 * 1000);
     qualityLevelSum += blueprint->id * maxGeodes;
   }
 
@@ -292,26 +304,19 @@ int main() {
 #ifdef TEST_MODE
   assert(qualityLevelSum == 33);
 #else
-  assert(qualityLevelSum == 420);
+  assert(qualityLevelSum == 1115);
 #endif
 
-  int geodeSum = 0;
+  int geodeSum = 1;
   for (int i = 0; i < min(blueprintIndex, 3); i++) {
     blueprint_t *blueprint = blueprints[i];
-    clock_t t;
-    t = clock();
     int maxGeodes = run(blueprint, MAX_TIME_BUT_ELEPHANTS_GOT_HUNGRY);
-    t = clock() - t;
-    double time_taken = (((double)t) / CLOCKS_PER_SEC); // in seconds
-
-    printf("took %fs / %fms / %fus to execute\n\n", time_taken,
-           time_taken * 1000, time_taken * 1000 * 1000);
-    qualityLevelSum *= maxGeodes;
+    geodeSum *= maxGeodes ;
   }
   fprintf(stdout, "Part two: %d\n", geodeSum);
 #ifdef TEST_MODE
-  assert(geodeSum == 69);
+  assert(geodeSum == 2604);
 #else
-  assert(geodeSum == 69);
+  assert(geodeSum == 25056);
 #endif
 }

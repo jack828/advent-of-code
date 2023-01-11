@@ -5,15 +5,10 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/types.h>
-// #define TEST_MODE
+#include <time.h>
+#define TEST_MODE
 #include "../../lib/queue.h"
 #include "../../utils.h"
-
-#ifdef TEST_MODE
-#define BLUEPRINT_COUNT 2
-#else
-#define BLUEPRINT_COUNT 30
-#endif
 
 #define MAX_TIME 24
 
@@ -124,7 +119,7 @@ simulation_t *cloneSim(simulation_t *srcSim) {
 int max4(int a, int b, int c, int d) { return max(a, max(b, max(c, d))); }
 
 // runs the simulation and returns the highest number of geodes possible
-int run(blueprint_t *blueprint) {
+int run(blueprint_t *blueprint, int maxTime) {
   simulation_t *simStart = malloc(sizeof(simulation_t));
   simStart->id = rand();
   simStart->ore = 0;
@@ -140,21 +135,22 @@ int run(blueprint_t *blueprint) {
   queue_t *queue = q_create();
   q_enqueue(queue, simStart);
 
-  int maxOreCost =
+  cost_t *maxCosts = malloc(sizeof(cost_t));
+  maxCosts->ore =
       max4(blueprint->oreRobotCost->ore, blueprint->clayRobotCost->ore,
            blueprint->obsidianRobotCost->ore, blueprint->geodeRobotCost->ore);
 
-  int maxClayCost =
+  maxCosts->clay =
       max4(blueprint->oreRobotCost->clay, blueprint->clayRobotCost->clay,
            blueprint->obsidianRobotCost->clay, blueprint->geodeRobotCost->clay);
 
-  int maxObsidianCost = max4(blueprint->oreRobotCost->obsidian,
-                             blueprint->clayRobotCost->obsidian,
-                             blueprint->obsidianRobotCost->obsidian,
-                             blueprint->geodeRobotCost->obsidian);
+  maxCosts->obsidian = max4(blueprint->oreRobotCost->obsidian,
+                            blueprint->clayRobotCost->obsidian,
+                            blueprint->obsidianRobotCost->obsidian,
+                            blueprint->geodeRobotCost->obsidian);
 
-  fprintf(stdout, "max: %d ore %d clay %d obsidian\n", maxOreCost, maxClayCost,
-          maxObsidianCost);
+  fprintf(stdout, "blueprint %d - max: %d ore %d clay %d obsidian\n",
+          blueprint->id, maxCosts->ore, maxCosts->clay, maxCosts->obsidian);
 
   int maxQueueSize = 0;
   int maxGeodes = 0;
@@ -174,7 +170,7 @@ int run(blueprint_t *blueprint) {
     }
 
     // reached the end
-    if (sim->minute == MAX_TIME) {
+    if (sim->minute == maxTime) {
       free(sim);
       continue;
     }
@@ -182,6 +178,13 @@ int run(blueprint_t *blueprint) {
     // do not continue if this path is worse than the current best
     if (sim->geode < maxGeodes) {
       free(sim);
+      continue;
+    }
+
+    // in the last minute, waiting is best
+    if (sim->minute == maxTime - 1) {
+      tick(sim);
+      q_enqueue(queue, sim);
       continue;
     }
 
@@ -195,8 +198,34 @@ int run(blueprint_t *blueprint) {
       q_enqueue(queue, newSim);
     } else {
 
+      // in the penultimate minute, if we can't build a geode robot,
+      // all we can (should) do is wait
+      if (sim->minute == maxTime - 2) {
+        tick(sim);
+        q_enqueue(queue, sim);
+        continue;
+      }
+
+      // can we make an ore robot
+      if (sim->oreRobots < maxCosts->ore &&
+          canAfford(sim, blueprint->oreRobotCost)) {
+        simulation_t *newSim = cloneSim(sim);
+        buyRobot(newSim, blueprint->oreRobotCost);
+        tick(newSim);
+        newSim->oreRobots++;
+        q_enqueue(queue, newSim);
+      }
+
+      // in the pre-penultimate minute, if we can't build a geode or ore robot,
+      // all we can (should) do is wait
+      if (sim->minute == maxTime - 3) {
+        tick(sim);
+        q_enqueue(queue, sim);
+        continue;
+      }
+
       // can we make a obsidian robot, and is it worth building
-      if (sim->obsidianRobots < maxObsidianCost &&
+      if (sim->obsidianRobots < maxCosts->obsidian &&
           canAfford(sim, blueprint->obsidianRobotCost)) {
         simulation_t *newSim = cloneSim(sim);
         buyRobot(newSim, blueprint->obsidianRobotCost);
@@ -206,22 +235,12 @@ int run(blueprint_t *blueprint) {
       }
 
       // can we make a clay robot
-      if (sim->clayRobots < maxClayCost &&
+      if (sim->clayRobots < maxCosts->clay &&
           canAfford(sim, blueprint->clayRobotCost)) {
         simulation_t *newSim = cloneSim(sim);
         buyRobot(newSim, blueprint->clayRobotCost);
         tick(newSim);
         newSim->clayRobots++;
-        q_enqueue(queue, newSim);
-      }
-      // can we make an ore robot
-      if (sim->oreRobots < maxOreCost &&
-          canAfford(sim, blueprint->oreRobotCost)) {
-        // fprintf(stdout, "sim: %d - buy ore robot\n", sim->id);
-        simulation_t *newSim = cloneSim(sim);
-        buyRobot(newSim, blueprint->oreRobotCost);
-        tick(newSim);
-        newSim->oreRobots++;
         q_enqueue(queue, newSim);
       }
       // also just wait
@@ -231,7 +250,7 @@ int run(blueprint_t *blueprint) {
   }
   q_destroy(queue);
 
-  fprintf(stdout, "\n\nmax queue size: %d\n", maxQueueSize);
+  fprintf(stdout, "max queue size: %d\n", maxQueueSize);
   return maxGeodes;
 }
 
@@ -259,6 +278,13 @@ int main() {
   for (int i = 0; i < blueprintIndex ; i++) {
     blueprint_t *blueprint = blueprints[i];
     int maxGeodes = run(blueprint);
+    clock_t t;
+    t = clock();
+    t = clock() - t;
+    double time_taken = (((double)t) / CLOCKS_PER_SEC); // in seconds
+
+    printf("took %fs / %fms / %fus to execute\n\n", time_taken,
+           time_taken * 1000, time_taken * 1000 * 1000);
     qualityLevelSum += blueprint->id * maxGeodes;
   }
 
@@ -269,10 +295,23 @@ int main() {
   assert(qualityLevelSum == 420);
 #endif
 
-  fprintf(stdout, "Part two: %d\n", 420);
+  int geodeSum = 0;
+  for (int i = 0; i < min(blueprintIndex, 3); i++) {
+    blueprint_t *blueprint = blueprints[i];
+    clock_t t;
+    t = clock();
+    int maxGeodes = run(blueprint, MAX_TIME_BUT_ELEPHANTS_GOT_HUNGRY);
+    t = clock() - t;
+    double time_taken = (((double)t) / CLOCKS_PER_SEC); // in seconds
+
+    printf("took %fs / %fms / %fus to execute\n\n", time_taken,
+           time_taken * 1000, time_taken * 1000 * 1000);
+    qualityLevelSum *= maxGeodes;
+  }
+  fprintf(stdout, "Part two: %d\n", geodeSum);
 #ifdef TEST_MODE
-  assert(420 == 69);
+  assert(geodeSum == 69);
 #else
-  assert(420 == 69);
+  assert(geodeSum == 69);
 #endif
 }

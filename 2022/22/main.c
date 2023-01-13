@@ -6,10 +6,10 @@
 #include <string.h>
 #include <sys/types.h>
 #define _AOC_LINE_MAX 8192
-// #define TEST_MODE
+#define TEST_MODE
 #include "../../utils.h"
 
-char *grid = NULL;
+char **grid = NULL;
 int gridHeight = 12;
 int gridWidth = 0;
 int lineY = 0;
@@ -31,7 +31,7 @@ typedef struct instruction_t {
   int steps;
 } instruction_t;
 
-instruction_t *instructions;
+instruction_t **instructions = NULL;
 int instructionCount = 0;
 
 void fileHandler(int lines) {
@@ -46,11 +46,14 @@ void lineHandler(char *line) {
   if (grid == NULL) {
     // allocate the grid
     gridWidth = length - 1;
-    grid = calloc(gridHeight * gridWidth, sizeof(char));
+    grid = malloc(gridHeight * sizeof(char *));
+    for (int i = 0; i < gridHeight; i++) {
+      grid[i] = calloc(gridWidth, sizeof(char));
+    }
   }
 
   if (lineY > gridHeight && length > 0) {
-    instructions = calloc(length - 1, sizeof(instruction_t));
+    instructions = malloc((length - 1) * sizeof(instruction_t *));
     // instructions line
     char token[4] = {0};
 
@@ -66,13 +69,13 @@ void lineHandler(char *line) {
         instruction_t *moveInstruction = malloc(sizeof(instruction_t));
         moveInstruction->type = MOVE;
         moveInstruction->steps = steps;
-        instructions[instructionCount++] = *moveInstruction;
+        instructions[instructionCount++] = moveInstruction;
 
         if (line[i] != '\n') {
           instruction_t *turnInstruction = malloc(sizeof(instruction_t));
           turnInstruction->type = TURN;
           turnInstruction->direction = line[i] == 'L' ? L : R;
-          instructions[instructionCount++] = *turnInstruction;
+          instructions[instructionCount++] = turnInstruction;
         }
       }
     }
@@ -80,7 +83,7 @@ void lineHandler(char *line) {
     // grid line
     for (int i = 0; i < length; i++) {
       if (line[i] == '.' || line[i] == '#') {
-        grid[(lineY * gridWidth) + i] = line[i];
+        grid[lineY][i] = line[i];
 
         if (lineY == 0 && startX == 0 && line[i] == '.') {
           // start position
@@ -102,8 +105,8 @@ void printGrid() {
         fputc('s', stdout);
       } else if (i == currY && j == currX) {
         fputc('e', stdout);
-      } else if (grid[(i * gridWidth) + j]) {
-        fputc(grid[(i * gridWidth) + j], stdout);
+      } else if (grid[i][j]) {
+        fputc(grid[i][j], stdout);
       } else {
         fputc(' ', stdout);
       }
@@ -115,7 +118,7 @@ void printGrid() {
 
 void printInstructions() {
   for (int i = 0; i < instructionCount; i++) {
-    instruction_t *instruction = &instructions[i];
+    instruction_t *instruction = instructions[i];
 
     if (instruction->type == MOVE) {
       fprintf(stdout, "inst: MOVE, steps: %d\n", instruction->steps);
@@ -129,7 +132,7 @@ void printInstructions() {
 void doTheMoves() {
   for (int instructionIndex = 0; instructionIndex < instructionCount;
        instructionIndex++) {
-    instruction_t *instruction = &instructions[instructionIndex];
+    instruction_t *instruction = instructions[instructionIndex];
 
     if (instruction->type == MOVE) {
       fprintf(stdout, "inst: MOVE, steps: %d\n", instruction->steps);
@@ -170,20 +173,20 @@ void doTheMoves() {
             newX = gridWidth;
           }
           // fprintf(stdout, "y: %d, x: %d - '%c'\n", newY, newX,
-                  // grid[(newY * gridWidth) + newX]);
-          // if (grid[(newY * gridWidth) + newX] == '.' ||
-          //     grid[(newY * gridWidth) + newX] == '#' ||
-          //     grid[(newY * gridWidth) + newX] == 'E') {
+          // grid[newY][newX]);
+          // if (grid[newY][newX] == '.' ||
+          //     grid[newY][newX] == '#' ||
+          //     grid[newY][newX] == 'E') {
           //   break;
           // }
-        } while (grid[(newY * gridWidth) + newX] == 0);
+        } while (grid[newY][newX] == 0);
 
-        if (grid[(newY * gridWidth) + newX] == '#') {
+        if (grid[newY][newX] == '#') {
           break;
         } else {
-          // if (grid[(newY * gridWidth) + newX] == '.' ||
-          // grid[(newY * gridWidth) + newX] == 'E') {
-          grid[(newY * gridWidth) + newX] = 'E';
+          // if (grid[newY][newX] == '.' ||
+          // grid[newY][newX] == 'E') {
+          grid[newY][newX] = 'E';
           currY = newY;
           currX = newX;
         }
@@ -272,7 +275,7 @@ int main() {
 #ifdef TEST_MODE
   assert(password == 6032);
 #else
-// TODO It doesn't work and i can't figure out why :c
+  // TODO It doesn't work and i can't figure out why :c
   assert(password < 26446);
   assert(password == 420);
 #endif

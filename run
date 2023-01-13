@@ -2,4 +2,4 @@
 
 ## USAGE
 # ./run 2022 7
-nodemon --exec "gcc -Wall -O3 ./$1/$2/main.c -lm -o ./$1/$2/main.out && ./$1/$2/main.out" --watch ./$1/$2/main.c
+nodemon --exec "gcc -Wall -O3 ./$1/$2/main.c -lm -o ./$1/$2/main.out && /usr/bin/time -f \"Time [h]:mm:ss %e\nMax memory %M KB\" ./$1/$2/main.out" --watch ./$1/$2/main.c

@@ -45,7 +45,7 @@ void lineHandler(char *line) {
   int length = strlen(line);
   if (grid == NULL) {
     // allocate the grid
-    gridWidth = length - 1;
+    gridWidth = length;
     grid = malloc(gridHeight * sizeof(char *));
     for (int i = 0; i < gridHeight; i++) {
       grid[i] = calloc(gridWidth, sizeof(char));
@@ -81,7 +81,7 @@ void lineHandler(char *line) {
     }
   } else if (length > 0) {
     // grid line
-    for (int i = 0; i < length; i++) {
+    for (int i = 0; i <= length; i++) {
       if (line[i] == '.' || line[i] == '#') {
         grid[lineY][i] = line[i];
 
@@ -152,7 +152,7 @@ void doTheMoves() {
           dX = -1;
           break;
         case UP:
-          dX = -1;
+          dY = -1;
           break;
         }
         int newY = currY;
@@ -162,15 +162,17 @@ void doTheMoves() {
           newX += dX;
           // check for out of bounds or wrapping before attempting move
           // TODO part two probably here
+          // fprintf(stdout, "inst: while: (%d,%d), g h: %d, g w: %d\n", newY,
+                  // newX, gridHeight, gridWidth);
           if (newY >= gridHeight) {
             newY = 0;
           } else if (newY < 0) {
-            newY = gridHeight;
+            newY = gridHeight-1;
           }
           if (newX >= gridWidth) {
             newX = 0;
           } else if (newX < 0) {
-            newX = gridWidth;
+            newX = gridWidth-1;
           }
           // fprintf(stdout, "y: %d, x: %d - '%c'\n", newY, newX,
           // grid[newY][newX]);
@@ -193,22 +195,26 @@ void doTheMoves() {
       }
 
     } else if (instruction->type == TURN) {
-      fprintf(stdout, "inst: TURN, dir %c\n",
+      fprintf(stdout, "inst: TURN, dir %c - now facing: ",
               instruction->direction == L ? 'L' : 'R');
       switch (instruction->direction) {
       case L: // anticlockwise
         switch (dir) {
         case RIGHT:
           dir = UP;
+          fprintf(stdout, "U");
           break;
         case DOWN:
           dir = RIGHT;
+          fprintf(stdout, "R");
           break;
         case LEFT:
           dir = DOWN;
+          fprintf(stdout, "D");
           break;
         case UP:
           dir = LEFT;
+          fprintf(stdout, "L");
           break;
         }
         break;
@@ -216,19 +222,24 @@ void doTheMoves() {
         switch (dir) {
         case RIGHT:
           dir = DOWN;
+          fprintf(stdout, "D");
           break;
         case DOWN:
           dir = LEFT;
+          fprintf(stdout, "L");
           break;
         case LEFT:
           dir = UP;
+          fprintf(stdout, "U");
           break;
         case UP:
           dir = RIGHT;
+          fprintf(stdout, "R");
           break;
         }
         break;
       }
+      fprintf(stdout, "\n");
     }
   }
 }
@@ -239,21 +250,27 @@ int calculatePassword() {
   // (^).
   // The final password is the sum of 1000 times the row, 4 times the column,
   // and the facing.
+  fprintf(stdout, "final: ");
   switch (dir) {
   case RIGHT:
+    fprintf(stdout, "R");
     score = 0;
     break;
   case DOWN:
+    fprintf(stdout, "D");
     score = 1;
     break;
   case LEFT:
     score = 2;
+    fprintf(stdout, "L");
     break;
   case UP:
     score = 3;
+    fprintf(stdout, "U");
     break;
   }
 
+  fprintf(stdout, " (%d,%d)\n", currY, currX);
   // zero indexed to 1 indexed
   score += 1000 * (currY + 1);
   score += 4 * (currX + 1);
@@ -277,9 +294,7 @@ int main() {
   // https://www.reddit.com/r/adventofcode/comments/zst7z3/2022_day_22_part_2_improved_example_input_working/
   assert(password == 10012);
 #else
-  // TODO It doesn't work and i can't figure out why :c
-  assert(password < 26446);
-  assert(password == 420);
+  assert(password == 3590);
 #endif
 
   fprintf(stdout, "Part two: %d\n", 420);

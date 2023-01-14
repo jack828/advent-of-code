@@ -53,11 +53,11 @@ void lineHandler(char *line) {
   }
 
   if (lineY > gridHeight && length > 0) {
-    instructions = malloc((length - 1) * sizeof(instruction_t *));
+    instructions = malloc(length * sizeof(instruction_t *));
     // instructions line
     char token[4] = {0};
 
-    for (int i = 0; i < length; i++) {
+    for (int i = 0; i <= length; i++) {
       if (isdigit(line[i])) {
         // digits for a number of steps
         strncat(token, line + i, 1);
@@ -71,7 +71,7 @@ void lineHandler(char *line) {
         moveInstruction->steps = steps;
         instructions[instructionCount++] = moveInstruction;
 
-        if (line[i] != '\n') {
+        if (line[i] != '\0') {
           instruction_t *turnInstruction = malloc(sizeof(instruction_t));
           turnInstruction->type = TURN;
           turnInstruction->direction = line[i] == 'L' ? L : R;
@@ -138,7 +138,7 @@ void doTheMoves() {
       fprintf(stdout, "inst: MOVE, steps: %d\n", instruction->steps);
       // move incrementally and wrap if needed, stopping at a wall
       for (int i = 0; i < instruction->steps; i++) {
-        fprintf(stdout, "inst: step: %d\n", i);
+        fprintf(stdout, "inst: step: %d (%d,%d)\n", i, currY, currX);
         int dY = 0;
         int dX = 0;
         switch (dir) {
@@ -273,7 +273,9 @@ int main() {
   int password = calculatePassword();
   fprintf(stdout, "Part one: %d\n", password);
 #ifdef TEST_MODE
-  assert(password == 6032);
+  // modified input
+  // https://www.reddit.com/r/adventofcode/comments/zst7z3/2022_day_22_part_2_improved_example_input_working/
+  assert(password == 10012);
 #else
   // TODO It doesn't work and i can't figure out why :c
   assert(password < 26446);

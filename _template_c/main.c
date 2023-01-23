@@ -7,13 +7,16 @@
 #define TEST_MODE
 #include "../../utils.h"
 
+void fileHandler(int lines) {
+  fprintf(stdout, "lines: %d\n", lines);
+}
 
 void lineHandler(char *line) {
   fprintf(stdout, "line: %s\n", line);
 }
 
 int main() {
-  readInput(__FILE__, lineHandler);
+  readInputFile(__FILE__, lineHandler, fileHandler);
 
   /* well implemented program goes here */
 

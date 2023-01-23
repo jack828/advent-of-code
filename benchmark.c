@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/resource.h>
 #include <sys/time.h>
 #include <sys/types.h>
 #include <sys/wait.h>
@@ -276,13 +277,30 @@ runtime_t *timeFileExecution(struct arguments *arguments, char *path) {
       // Child process
       dup2(null_fd, STDOUT_FILENO);
       dup2(null_fd, STDERR_FILENO);
+      struct rlimit rl;
+      rl.rlim_cur = arguments->maxTime / ONE_S_IN_US;
+      rl.rlim_max = arguments->maxTime / ONE_S_IN_US;
+      setrlimit(RLIMIT_CPU, &rl);
       execl(path, path, NULL);
-      _exit(EXIT_FAILURE);
+      _exit(EXIT_FAILURE); // die if it gets here, above line replaces program
+                           // image
     } else if (pid > 0) {
       // Parent process
       int status;
       waitpid(pid, &status, 0);
       gettimeofday(&end, NULL);
+
+      if (WIFEXITED(status) && (WEXITSTATUS(status) == 0)) {
+        // exit OK
+      } else if (WIFSIGNALED(status) && (WTERMSIG(status) == SIGXCPU)) {
+        // TODO never gets in here
+        printf("%s killed, out of time\n", path);
+        break;
+      } else {
+        printf("%s exited abnormally with status %d (%d)\n", path,
+               WEXITSTATUS(status), status);
+        break;
+      }
       long s = end.tv_sec - start.tv_sec;
       long us = end.tv_usec - start.tv_usec;
       long total = (s * 1000000) + us;
@@ -297,12 +315,7 @@ runtime_t *timeFileExecution(struct arguments *arguments, char *path) {
       }
 
       if (runtime->total > arguments->maxTime) {
-        break;
-      }
-      if (WIFEXITED(status)) {
-        // printf("%s exited with status %d\n", path, WEXITSTATUS(status));
-      } else {
-        printf("%s terminated abnormally\n", path);
+        printf("%s stopping, out of time\n", path);
         break;
       }
     } else {
@@ -313,7 +326,11 @@ runtime_t *timeFileExecution(struct arguments *arguments, char *path) {
   }
   close(null_fd);
 
-  runtime->avg = runtime->total / runtime->runs;
+  if (runtime->runs > 0) {
+    runtime->avg = runtime->total / runtime->runs;
+  } else {
+    runtime->min = 0;
+  }
   return runtime;
 }
 

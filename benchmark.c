@@ -150,14 +150,16 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
 static struct argp argp = {options, parse_opt, args_doc, doc};
 
 static char *convTime(long time, int length) {
-  static int buf_len = 0;
-  static char *buf = NULL;
+  int buf_len = 0;
+  char *buf = calloc(length, sizeof(char));
   if (((int)log10(time)) + 6 > buf_len) {
     buf_len = ((int)log10(time)) + 6;
     buf = realloc(buf, buf_len);
   }
 
-  if (time < ONE_MS_IN_US) {
+  if (time == 0) {
+    sprintf(buf, "%*s", length - 3, "--");
+  } else if (time < ONE_MS_IN_US) {
     sprintf(buf, "%*ld µs", length - 3, time);
   } else if (time < ONE_S_IN_US) {
     sprintf(buf, "%*ld.%02ld ms", length - 6, time / 1000, (time % 1000) / 10);

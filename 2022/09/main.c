@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/types.h>
+// I broke test mode oops
 // #define TEST_MODE
 #include "../../utils.h"
 
@@ -16,87 +17,84 @@
 #define WIDTH 4096
 #endif
 
-// you'll have to manually swap this out to test part one and two, lol soz
-// #define PART_ONE
-
 char grid[HEIGHT][WIDTH];
-int visited[HEIGHT][WIDTH];
+int visited1[HEIGHT][WIDTH];
+int visited2[HEIGHT][WIDTH];
 
-typedef struct KNOT {
+typedef struct knot_t {
   int x;
   int y;
-  struct KNOT *tail;
+  struct knot_t *tail;
   bool isTailKnot;
   char indicator;
-} KNOT;
+} knot_t;
 
-#ifdef PART_ONE
-KNOT tail = {.isTailKnot = true,
-             .x = HEIGHT / 2,
-             .y = WIDTH / 2,
-             .tail = NULL,
-             .indicator = 'T'};
+// PART ONE
 
-#else
-KNOT tail9 = {.isTailKnot = true,
-              .x = HEIGHT / 2,
-              .y = WIDTH / 2,
-              .tail = NULL,
-              .indicator = '9'};
-KNOT tail8 = {.isTailKnot = false,
-              .x = HEIGHT / 2,
-              .y = WIDTH / 2,
-              .tail = &tail9,
-              .indicator = '8'};
-KNOT tail7 = {.isTailKnot = false,
-              .x = HEIGHT / 2,
-              .y = WIDTH / 2,
-              .tail = &tail8,
-              .indicator = '7'};
-KNOT tail6 = {.isTailKnot = false,
-              .x = HEIGHT / 2,
-              .y = WIDTH / 2,
-              .tail = &tail7,
-              .indicator = '6'};
-KNOT tail5 = {.isTailKnot = false,
-              .x = HEIGHT / 2,
-              .y = WIDTH / 2,
-              .tail = &tail6,
-              .indicator = '5'};
-KNOT tail4 = {.isTailKnot = false,
-              .x = HEIGHT / 2,
-              .y = WIDTH / 2,
-              .tail = &tail5,
-              .indicator = '4'};
-KNOT tail3 = {.isTailKnot = false,
-              .x = HEIGHT / 2,
-              .y = WIDTH / 2,
-              .tail = &tail4,
-              .indicator = '3'};
-KNOT tail2 = {.isTailKnot = false,
-              .x = HEIGHT / 2,
-              .y = WIDTH / 2,
-              .tail = &tail3,
-              .indicator = '2'};
-KNOT tail1 = {.isTailKnot = false,
-              .x = HEIGHT / 2,
-              .y = WIDTH / 2,
-              .tail = &tail2,
-              .indicator = '1'};
+knot_t tail = {.isTailKnot = true,
+               .x = HEIGHT / 2,
+               .y = WIDTH / 2,
+               .tail = NULL,
+               .indicator = 'T'};
+knot_t head1 = {.isTailKnot = false,
+                .x = HEIGHT / 2,
+                .y = WIDTH / 2,
+                .tail = &tail,
+                .indicator = 'H'};
 
-#endif
+// PART TWO
+knot_t tail9 = {.isTailKnot = true,
+                .x = HEIGHT / 2,
+                .y = WIDTH / 2,
+                .tail = NULL,
+                .indicator = '9'};
+knot_t tail8 = {.isTailKnot = false,
+                .x = HEIGHT / 2,
+                .y = WIDTH / 2,
+                .tail = &tail9,
+                .indicator = '8'};
+knot_t tail7 = {.isTailKnot = false,
+                .x = HEIGHT / 2,
+                .y = WIDTH / 2,
+                .tail = &tail8,
+                .indicator = '7'};
+knot_t tail6 = {.isTailKnot = false,
+                .x = HEIGHT / 2,
+                .y = WIDTH / 2,
+                .tail = &tail7,
+                .indicator = '6'};
+knot_t tail5 = {.isTailKnot = false,
+                .x = HEIGHT / 2,
+                .y = WIDTH / 2,
+                .tail = &tail6,
+                .indicator = '5'};
+knot_t tail4 = {.isTailKnot = false,
+                .x = HEIGHT / 2,
+                .y = WIDTH / 2,
+                .tail = &tail5,
+                .indicator = '4'};
+knot_t tail3 = {.isTailKnot = false,
+                .x = HEIGHT / 2,
+                .y = WIDTH / 2,
+                .tail = &tail4,
+                .indicator = '3'};
+knot_t tail2 = {.isTailKnot = false,
+                .x = HEIGHT / 2,
+                .y = WIDTH / 2,
+                .tail = &tail3,
+                .indicator = '2'};
+knot_t tail1 = {.isTailKnot = false,
+                .x = HEIGHT / 2,
+                .y = WIDTH / 2,
+                .tail = &tail2,
+                .indicator = '1'};
+knot_t head2 = {.isTailKnot = false,
+                .x = HEIGHT / 2,
+                .y = WIDTH / 2,
+                .tail = &tail1,
+                .indicator = 'H'};
 
-KNOT head = {.isTailKnot = false,
-             .x = HEIGHT / 2,
-             .y = WIDTH / 2,
-#ifdef PART_ONE
-             .tail = &tail,
-#else
-             .tail = &tail1,
-#endif
-             .indicator = 'H'};
-
-void printVisited() {
+void printVisited(int visited[HEIGHT][WIDTH]) {
   for (int i = 0; i < HEIGHT; i++) {
     for (int j = 0; j < WIDTH; j++) {
       fputs(visited[i][j] ? "1" : "0", stdout);
@@ -119,45 +117,54 @@ void printGrid() {
   }
 }
 
-void doMove(char direction) {
+void moveRope(knot_t *head, int visited[HEIGHT][WIDTH], char direction) {
+#ifdef TEST_MODE
   fprintf(stdout, "MOVE: dir %c, knot (%d,%d), tail (%d,%d)[%c]\n", direction,
-          head.x, head.y, head.tail->x, head.tail->y, head.tail->indicator);
-  int changeX = 0;
-  int changeY = 0;
+          head->x, head->y, head->tail->x, head->tail->y,
+          head->tail->indicator);
+#endif
+  int dX = 0;
+  int dY = 0;
   switch (direction) {
   case 'R':
-    changeX = 1;
-    changeY = 0;
+    dX = 1;
+    dY = 0;
     break;
   case 'U':
-    changeX = 0;
-    changeY = -1;
+    dX = 0;
+    dY = -1;
     break;
   case 'L':
-    changeX = -1;
-    changeY = 0;
+    dX = -1;
+    dY = 0;
     break;
   case 'D':
-    changeX = 0;
-    changeY = 1;
+    dX = 0;
+    dY = 1;
     break;
   }
-  int newHeadX = head.x + changeX;
-  int newHeadY = head.y + changeY;
-  // set new position
-  grid[head.y][head.x] = ' ';
-  head.x = newHeadX;
-  head.y = newHeadY;
-  grid[head.y][head.x] = head.indicator;
+  int newHeadX = head->x + dX;
+  int newHeadY = head->y + dY;
+// set new position
+#ifdef TEST_MODE
+  grid[head->y][head->x] = ' ';
+#endif
+  head->x = newHeadX;
+  head->y = newHeadY;
+#ifdef TEST_MODE
+  grid[head->y][head->x] = head->indicator;
+#endif
 
-  struct KNOT *headPtr = &head;
-  struct KNOT *tailPtr = head.tail;
+  struct knot_t *headPtr = head;
+  struct knot_t *tailPtr = head->tail;
 
   do {
+#ifdef TEST_MODE
     fprintf(stdout, "MOVE HEAD: head (%d,%d) - %c\n", headPtr->x, headPtr->y,
             headPtr->indicator);
     fprintf(stdout, "MOVE TAIL: tail (%d,%d) - %c\n", tailPtr->x, tailPtr->y,
             tailPtr->indicator);
+#endif
 
     // Confession: i had to look for help for this block
     // If the head is right next to or directly on top of the tail then we do
@@ -190,7 +197,9 @@ void doMove(char direction) {
       }
     }
     // tail
+#ifdef TEST_MODE
     grid[tailPtr->y][tailPtr->x] = tailPtr->indicator;
+#endif
     if (tailPtr->isTailKnot) {
       visited[tailPtr->y][tailPtr->x] = 1;
     }
@@ -200,50 +209,64 @@ void doMove(char direction) {
 }
 
 void lineHandler(char *line) {
-  fputs("line: ", stdout);
-  fputs(line, stdout);
+  fprintf(stdout, "line: %s\n", line);
 
   char *direction;
   int steps;
   direction = strtok(line, " ");
   steps = atoi(strtok(NULL, " "));
 
+#ifdef TEST_MODE
   fprintf(stdout, "MOVE: dir %s, steps %d\n", direction, steps);
+#endif
 
   for (int i = 0; i < steps; i++) {
-    doMove(direction[0]);
+    // TODO could probably be optimised into a single loop with a check on the
+    // second rope knot and treat it as the end of the part one rope
+    moveRope(&head1, visited1, direction[0]);
+    moveRope(&head2, visited2, direction[0]);
   }
-
-  fputs("\n", stdout);
 }
 
 int main() {
-
   grid[HEIGHT / 2][WIDTH / 2] = 'H';
   readInput(__FILE__, lineHandler);
+#ifdef TEST_MODE
   printGrid();
-  printVisited();
-  int visitedCount = 0;
+  printVisited(visited1);
+  printVisited(visited2);
+#endif
+
+  int visitedCountP1 = 0;
   for (int i = 0; i < HEIGHT; i++) {
     for (int j = 0; j < HEIGHT; j++) {
-      if (visited[i][j] == 1) {
-        visitedCount++;
+      if (visited1[i][j] == 1) {
+        visitedCountP1++;
       }
     }
   }
 
-  fprintf(stdout, "Result: %d\n", visitedCount);
-#ifdef PART_ONE
+  fprintf(stdout, "Part one: %d\n", visitedCountP1);
+
+  int visitedCountP2 = 0;
+  for (int i = 0; i < HEIGHT; i++) {
+    for (int j = 0; j < HEIGHT; j++) {
+      if (visited2[i][j] == 1) {
+        visitedCountP2++;
+      }
+    }
+  }
+
+  fprintf(stdout, "Part two: %d\n", visitedCountP2);
 #ifdef TEST_MODE
-  assert(visitedCount == 13);
+  assert(visitedCountP1 == 13);
 #else
-  assert(visitedCount == 5874);
+  assert(visitedCountP1 == 5874);
 #endif
-#else
+
 #ifdef TEST_MODE
-  assert(visitedCount == 36);
+  assert(visitedCountP2 == 36);
 #else
-  assert(visitedCount == 2467);
-#endif
+  assert(visitedCountP2 == 2467);
 #endif
 }

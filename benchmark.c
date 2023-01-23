@@ -303,6 +303,7 @@ runtime_t *timeFileExecution(struct arguments *arguments, char *path) {
         // printf("%s exited with status %d\n", path, WEXITSTATUS(status));
       } else {
         printf("%s terminated abnormally\n", path);
+        break;
       }
     } else {
       // Error

@@ -224,7 +224,6 @@ void printResults(struct runtime_t **runtimes, int runtimeCount,
 
 /* Take the path to an executable and return the average runtime of max
  * iterationTimes times
- *
  */
 runtime_t *timeFileExecution(char *path, int iterationTimes) {
   runtime_t *runtime = malloc(sizeof(runtime_t));
@@ -254,7 +253,6 @@ runtime_t *timeFileExecution(char *path, int iterationTimes) {
       long us = end.tv_usec - start.tv_usec;
       long total = (s * 1000000) + us;
 
-      // printf("%d: %lds %ldns, total %ldns\n", i, s, ns, total);
       runtime->total += total;
       runtime->times[runtime->runs++] = total;
       if (total > runtime->max) {
@@ -277,11 +275,6 @@ runtime_t *timeFileExecution(char *path, int iterationTimes) {
   }
   close(null_fd);
 
-  // printf("took %fs / %fms / %fus to execute\n",
-  // total_time_ns / 1000.0 / 1000 / 1000, total_time_ns / 1000.0 / 1000,
-  // total_time_ns / 1000.0);
-  // printf("total time was %.2fs / %.2f m / %.2f h \n", total_time,
-  // total_time / 60, total_time / 60 / 60);
   runtime->avg = runtime->total / runtime->runs;
   return runtime;
 }
@@ -299,6 +292,7 @@ int main(int argc, char **argv) {
   /* Default values */
   arguments.year = year;
   arguments.day = NULL;
+  arguments.style = &style_utf16;
 
   argp_parse(&argp, argc, argv, 0, 0, &arguments);
 
@@ -312,15 +306,7 @@ int main(int argc, char **argv) {
     printf("DAY  = 1-25\n");
   }
 
-  if (arguments.style == NULL) {
-    arguments.style = &style_utf16;
-  }
-
-  printf(" Year | Day  |  Time  \n");
-
-  // find each main.out file in __FILE__/year/*/main.out
-  // for each file, fork and run it 10 times
-  // log  year - day = time
+  // please don't make your paths this long...
   char path[8192];
   path[0] = '\0';
   strcat(path, __FILE__);
@@ -330,19 +316,18 @@ int main(int argc, char **argv) {
   strcat(path, "/0*/main.out");
 
   glob_t files;
-  printf("path: %s\n", path);
   glob(path, 0, NULL, &files);
   u_int64_t fileCount = files.gl_pathc;
-  runtime_t **runtimes = malloc(fileCount * sizeof(runtime_t *));
 
-  printf("%lu\n", fileCount);
+  printf("Path: %s with %lu files\n", path, fileCount);
+
+  runtime_t **runtimes = malloc(fileCount * sizeof(runtime_t *));
   for (int i = 0; i < fileCount; i++) {
     // for (int i = 0; i < 2; i++) {
     char *filePath = files.gl_pathv[i];
-    printf("file: %s\n", filePath);
+    printf("Testing: %s\n", filePath);
 
     runtime_t *runtime = timeFileExecution(filePath, 10);
-
     runtimes[i] = runtime;
   }
 

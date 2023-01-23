@@ -50,6 +50,11 @@ static struct argp_option options[] = {
      .arg = "PATH",
      .flags = OPTION_ARG_OPTIONAL,
      .doc = "Path to AoC solutions. Default \"./\"."},
+    {.name = "runs",
+     .key = 'r',
+     .arg = "RUNS",
+     .flags = OPTION_ARG_OPTIONAL,
+     .doc = "Number of times to run each solution. Default 1024."},
     {0}};
 
 typedef struct runtime_t {
@@ -86,6 +91,7 @@ struct arguments {
   char *day;
   table_style_t *style;
   char *path;
+  int runs;
 };
 
 static error_t parse_opt(int key, char *arg, struct argp_state *state) {
@@ -110,6 +116,9 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
     }
   case 'p':
     arguments->path = arg;
+    break;
+  case 'r':
+    arguments->runs = atoi(arg);
     break;
   default:
     return ARGP_ERR_UNKNOWN;
@@ -303,6 +312,7 @@ int main(int argc, char **argv) {
   arguments.day = NULL;
   arguments.style = &style_utf16;
   arguments.path = "./";
+  arguments.runs = 1024;
 
   argp_parse(&argp, argc, argv, 0, 0, &arguments);
 
@@ -338,7 +348,7 @@ int main(int argc, char **argv) {
     char *filePath = files.gl_pathv[i];
     printf("Testing: %s\n", filePath);
 
-    runtime_t *runtime = timeFileExecution(filePath, 10);
+    runtime_t *runtime = timeFileExecution(filePath, arguments.runs);
     runtimes[i] = runtime;
   }
 

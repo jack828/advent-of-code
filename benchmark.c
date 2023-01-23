@@ -45,6 +45,11 @@ static struct argp_option options[] = {
      .arg = "STYLE",
      .flags = OPTION_ARG_OPTIONAL,
      .doc = "Style can be one of utf16, utf8, csv. Default utf16."},
+    {.name = "path",
+     .key = 'p',
+     .arg = "PATH",
+     .flags = OPTION_ARG_OPTIONAL,
+     .doc = "Path to AoC solutions. Default \"./\"."},
     {0}};
 
 typedef struct runtime_t {
@@ -80,6 +85,7 @@ struct arguments {
   char *year;
   char *day;
   table_style_t *style;
+  char *path;
 };
 
 static error_t parse_opt(int key, char *arg, struct argp_state *state) {
@@ -102,6 +108,9 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
     } else {
       return ARGP_ERR_UNKNOWN;
     }
+  case 'p':
+    arguments->path = arg;
+    break;
   default:
     return ARGP_ERR_UNKNOWN;
   }
@@ -293,6 +302,7 @@ int main(int argc, char **argv) {
   arguments.year = year;
   arguments.day = NULL;
   arguments.style = &style_utf16;
+  arguments.path = "./";
 
   argp_parse(&argp, argc, argv, 0, 0, &arguments);
 
@@ -307,11 +317,8 @@ int main(int argc, char **argv) {
   }
 
   // please don't make your paths this long...
-  char path[8192];
-  path[0] = '\0';
-  strcat(path, __FILE__);
-  *strrchr(path, '/') = '\0';
-  strcat(path, "/");
+  char path[8192] = {0};
+  strcat(path, arguments.path);
   strcat(path, arguments.year);
   strcat(path, "/0*/main.out");
 
@@ -321,6 +328,10 @@ int main(int argc, char **argv) {
 
   printf("Path: %s with %lu files\n", path, fileCount);
 
+  if (fileCount == 0) {
+    printf("No solutions found. Go solve some!\n");
+    exit(0);
+  }
   runtime_t **runtimes = malloc(fileCount * sizeof(runtime_t *));
   for (int i = 0; i < fileCount; i++) {
     // for (int i = 0; i < 2; i++) {

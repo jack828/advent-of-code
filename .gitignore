@@ -105,3 +105,6 @@ dist
 
 # C Binaries
 *.out
+
+benchmark
+benchmark.debug

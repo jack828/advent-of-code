@@ -351,7 +351,13 @@ int main(int argc, char **argv) {
   char path[8192] = {0};
   strcat(path, arguments.path);
   strcat(path, arguments.year);
-  strcat(path, "/0*/main.out");
+  strcat(path, "/");
+  if (arguments.day != NULL) {
+    strcat(path, arguments.day);
+  } else {
+    strcat(path, "0*");
+  }
+  strcat(path, "/main.out");
 
   glob_t files;
   glob(path, 0, NULL, &files);

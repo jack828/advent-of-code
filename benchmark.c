@@ -22,6 +22,10 @@
  * Thanks to Slash-by-Zero!
  */
 
+#define ONE_MS_IN_US 1000
+#define ONE_S_IN_US 1000000
+#define ONE_M_IN_US 60000000
+
 const char *argp_program_version = "aoc benchmark 1.0";
 const char *argp_program_bug_address = "<me@jackburgess.dev>";
 
@@ -55,6 +59,12 @@ static struct argp_option options[] = {
      .arg = "RUNS",
      .flags = OPTION_ARG_OPTIONAL,
      .doc = "Number of times to run each solution. Default 1024."},
+    {.name = "timeLimit",
+     .key = 't',
+     .arg = "TIMELIMIT",
+     .flags = OPTION_ARG_OPTIONAL,
+     .doc = "Maximum time (seconds) allowed for each file to complete [RUNS] "
+            "runs. Default 30s."},
     {0}};
 
 typedef struct runtime_t {
@@ -92,6 +102,7 @@ struct arguments {
   table_style_t *style;
   char *path;
   int runs;
+  long maxTime;
 };
 
 static error_t parse_opt(int key, char *arg, struct argp_state *state) {
@@ -120,6 +131,9 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
   case 'r':
     arguments->runs = atoi(arg);
     break;
+  case 't':
+    arguments->maxTime = atoi(arg) * ONE_S_IN_US;
+    break;
   default:
     return ARGP_ERR_UNKNOWN;
   }
@@ -127,10 +141,6 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
 }
 
 static struct argp argp = {options, parse_opt, args_doc, doc};
-
-#define ONE_MS_IN_US 1000
-#define ONE_S_IN_US 1000000
-#define ONE_M_IN_US 60000000
 
 static char *convTime(long time, int length) {
   static int buf_len = 0;
@@ -243,15 +253,15 @@ void printResults(struct runtime_t **runtimes, int runtimeCount,
 /* Take the path to an executable and return the average runtime of max
  * iterationTimes times
  */
-runtime_t *timeFileExecution(char *path, int iterationTimes) {
+runtime_t *timeFileExecution(struct arguments *arguments, char *path) {
   runtime_t *runtime = malloc(sizeof(runtime_t));
   memset(runtime, 0, sizeof(runtime_t));
-  runtime->times = calloc(iterationTimes, sizeof(long));
+  runtime->times = calloc(arguments->runs, sizeof(long));
   runtime->min = LONG_MAX;
   runtime->path = path;
 
   int null_fd = open("/dev/null", O_WRONLY);
-  for (int i = 0; i < iterationTimes; i++) {
+  for (int i = 0; i < arguments->runs; i++) {
     struct timeval start, end;
     gettimeofday(&start, NULL);
 
@@ -280,6 +290,9 @@ runtime_t *timeFileExecution(char *path, int iterationTimes) {
         runtime->min = total;
       }
 
+      if (runtime->total > arguments->maxTime) {
+        break;
+      }
       if (WIFEXITED(status)) {
         // printf("%s exited with status %d\n", path, WEXITSTATUS(status));
       } else {
@@ -313,6 +326,7 @@ int main(int argc, char **argv) {
   arguments.style = &style_utf16;
   arguments.path = "./";
   arguments.runs = 1024;
+  arguments.maxTime = 30 * ONE_S_IN_US;
 
   argp_parse(&argp, argc, argv, 0, 0, &arguments);
 
@@ -348,7 +362,7 @@ int main(int argc, char **argv) {
     char *filePath = files.gl_pathv[i];
     printf("Testing: %s\n", filePath);
 
-    runtime_t *runtime = timeFileExecution(filePath, arguments.runs);
+    runtime_t *runtime = timeFileExecution(&arguments, filePath);
     runtimes[i] = runtime;
   }
 

@@ -8,15 +8,8 @@
 // #define TEST_MODE
 #include "../utils.h"
 
-#define PART_TWO
-
-#ifdef PART_TWO
 #define WIDTH 5000
 #define HEIGHT 1000
-#else
-#define WIDTH 1000
-#define HEIGHT 1000
-#endif
 
 char grid[HEIGHT][WIDTH] = {0};
 // Only used for debug print
@@ -158,28 +151,21 @@ bool dropSand() {
 
   grid[sandY][sandX] = 'o';
 
-#ifdef PART_TWO
+  // part two only
   if (sandY == sandSrc[0] && sandX == sandSrc[1]) {
     return true;
   }
-#endif
   return false;
 }
 
 int main() {
   init();
   readInputFile(__FILE__, lineHandler, fileHandler);
-#ifdef PART_TWO
-  char *line = malloc(sizeof(char) * 20);
-  sprintf(line, "0,%d -> %d,%d", highestY + 2, WIDTH, highestY + 2);
-  lineHandler(line);
-#endif
   // printGrid();
 
   int sand = 0;
 
   for (;;) {
-    // fprintf(stdout, "sand: %d\n", sand);
     bool sandFellToAbyss = dropSand();
     if (sandFellToAbyss) {
       break;
@@ -187,20 +173,35 @@ int main() {
     sand++;
     // printGrid();
   }
-#ifndef PART_TWO
   fprintf(stdout, "Part one: %d\n", sand);
 #ifdef TEST_MODE
   assert(sand == 24);
 #else
   assert(sand == 638);
 #endif
-#else
-  fprintf(stdout, "Part two: %d\n", sand + 1);
+
+  // reset and re-read input
+  memset(grid, 0, WIDTH * HEIGHT * sizeof(char));
+  readInputFile(__FILE__, lineHandler, fileHandler);
+  char *line = calloc(42, sizeof(char));
+  sprintf(line, "0,%d -> %d,%d", highestY + 2, WIDTH, highestY + 2);
+  lineHandler(line);
+
+  sand = 0;
+
+  for (;;) {
+    bool sandReachedTheTop = dropSand();
+    sand++;
+    if (sandReachedTheTop) {
+      break;
+    }
+  }
+
+  fprintf(stdout, "Part two: %d\n", sand);
 #ifdef TEST_MODE
-  assert(sand + 1 == 93);
+  assert(sand == 93);
 #else
-  assert(sand + 1 == 31722);
-#endif
+  assert(sand == 31722);
 #endif
   exit(EXIT_SUCCESS);
 }

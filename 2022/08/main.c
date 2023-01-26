@@ -1,8 +1,11 @@
+#include <assert.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/types.h>
+// #define TEST_MODE
+#include "../utils.h"
 
 #define LINE_MAX 1024
 
@@ -87,29 +90,24 @@ u_int64_t scenicScore(u_int64_t row, u_int64_t col) {
   return left * right * up * down;
 }
 
+void fileHandler(int lines) { fprintf(stdout, "lines: %d\n", lines); }
+
+void lineHandler(char *line) {
+  fprintf(stdout, "line: %s\n", line);
+  if (!colCount) {
+    colCount = strlen(line);
+  }
+  for (u_int64_t i = 0; i < colCount; i++) {
+    trees[rowCount][i] = line[i] - 48;
+    treesDebug[rowCount][i] = line[i] - 48;
+  }
+
+  rowCount++;
+}
+
 int main() {
-  FILE *fp = fopen("./2022/8/input.txt", "r");
-  if (fp == NULL) {
-    perror("Unable to open file!");
-    exit(1);
-  }
-
-  char chunk[LINE_MAX];
-
-  while (fgets(chunk, sizeof(chunk), fp) != NULL) {
-    fputs("line: ", stdout);
-    fputs(chunk, stdout);
-    if (!colCount) {
-      colCount = strlen(chunk) - 1;
-    }
-    for (u_int64_t i = 0; i < colCount; i++) {
-      trees[rowCount][i] = chunk[i] - 48;
-      treesDebug[rowCount][i] = chunk[i] - 48;
-    }
-
-    rowCount++;
-    /* fputs("\n", stdout); */
-  }
+  init();
+  readInputFile(__FILE__, lineHandler, fileHandler);
 
   u_int64_t visibleCount = 0;
 
@@ -130,6 +128,11 @@ int main() {
   }
 
   fprintf(stdout, "Part one: %lu\n", visibleCount);
+#ifdef TEST_MODE
+  assert(visibleCount == 21);
+#else
+  assert(visibleCount == 1798);
+#endif
 
   u_int64_t highScore = 0;
 
@@ -145,5 +148,10 @@ int main() {
     }
   }
   fprintf(stdout, "Part two: %lu\n", highScore);
-  fclose(fp);
+#ifdef TEST_MODE
+  assert(highScore == 8);
+#else
+  assert(highScore == 259308);
+#endif
+  exit(EXIT_SUCCESS);
 }

@@ -149,28 +149,21 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
 
 static struct argp argp = {options, parse_opt, args_doc, doc};
 
-static char *convTime(long time, int length) {
-  int buf_len = 0;
-  char *buf = calloc(length, sizeof(char));
-  if (((int)log10(time)) + 6 > buf_len) {
-    buf_len = ((int)log10(time)) + 6;
-    buf = realloc(buf, buf_len);
-  }
-
+char *formatTime(long time) {
+  char *buf = calloc(24, sizeof(char));
   if (time == 0) {
-    sprintf(buf, "%*s", length - 3, "--");
+    sprintf(buf, "%s", "--");
   } else if (time < ONE_MS_IN_US) {
-    sprintf(buf, "%*ld µs", length - 3, time);
+    sprintf(buf, "%ld µs", time);
   } else if (time < ONE_S_IN_US) {
-    sprintf(buf, "%*ld.%02ld ms", length - 6, time / 1000, (time % 1000) / 10);
+    sprintf(buf, "%ld.%02ld ms", time / 1000, (time % 1000) / 10);
   } else if (time < ONE_M_IN_US) {
-    sprintf(buf, "%*ld.%03ld s", length - 6, time / ONE_S_IN_US,
+    sprintf(buf, "%ld.%03ld s", time / ONE_S_IN_US,
             (time % ONE_S_IN_US) / 1000);
   } else {
-    sprintf(buf, "%*ld:%02ld.%03ld m", length - 9, time / ONE_M_IN_US,
+    sprintf(buf, "%ld:%02ld.%03ld m", time / ONE_M_IN_US,
             (time % ONE_M_IN_US) / ONE_S_IN_US, (time % ONE_S_IN_US) / 1000);
   }
-
   return buf;
 }
 
@@ -189,15 +182,15 @@ void printResults(struct runtime_t **runtimes, int runtimeCount,
     if (log10(runtime->runs) > maxRunsLength) {
       maxRunsLength = log10(runtime->runs);
     }
-    for (int j = 0; j < runtime->runs; j++) {
-      long time = runtime->times[j];
-      if (log10(time) > maxTimeLength) {
-        maxTimeLength = log10(time);
-      }
+    char *formattedTime = formatTime(runtime->total);
+    int length = strlen(formattedTime) + 1;
+    if (length > maxTimeLength) {
+      maxTimeLength = length;
     }
   }
 
-  maxTimeLength += 4; // time + " ms "
+  // wtf is this
+  maxTimeLength += 1;
   // table width
   int hline_length = maxPathLength + maxRunsLength + (4 * maxTimeLength) + 16;
 
@@ -249,13 +242,13 @@ void printResults(struct runtime_t **runtimes, int runtimeCount,
     }
     fprintf(stdout, "%*s %s ", maxPathLength, runtime->path, style->vdash);
     fprintf(stdout, "%*ld %s ", maxRunsLength + 1, runtime->runs, style->vdash);
-    fprintf(stdout, "%s %s ", convTime(runtime->total, maxTimeLength),
+    fprintf(stdout, "%*s %s ", maxTimeLength, formatTime(runtime->total),
             style->vdash);
-    fprintf(stdout, "%s %s ", convTime(runtime->avg, maxTimeLength),
+    fprintf(stdout, "%*s %s ", maxTimeLength, formatTime(runtime->avg),
             style->vdash);
-    fprintf(stdout, "%s %s ", convTime(runtime->max, maxTimeLength),
+    fprintf(stdout, "%*s %s ", maxTimeLength, formatTime(runtime->max),
             style->vdash);
-    fprintf(stdout, "%s\n", convTime(runtime->min, maxTimeLength));
+    fprintf(stdout, "%*s\n", maxTimeLength, formatTime(runtime->min));
   }
 }
 

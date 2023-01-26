@@ -8,7 +8,7 @@
 #include <time.h>
 // #define TEST_MODE
 #include "../../lib/queue.h"
-#include "../../utils.h"
+#include "../utils.h"
 
 #define MAX_TIME 24
 #define MAX_TIME_BUT_ELEPHANTS_GOT_HUNGRY 32
@@ -162,7 +162,7 @@ int run(blueprint_t *blueprint, int maxTime) {
                             blueprint->geodeRobotCost->obsidian);
 
   // fprintf(stdout, "blueprint %d - max: %d ore %d clay %d obsidian\n",
-          // blueprint->id, maxCosts->ore, maxCosts->clay, maxCosts->obsidian);
+  // blueprint->id, maxCosts->ore, maxCosts->clay, maxCosts->obsidian);
 
   int maxQueueSize = 0;
   int maxGeodes = 0;
@@ -271,6 +271,7 @@ int run(blueprint_t *blueprint, int maxTime) {
 }
 
 int main() {
+  init();
   readInputFile(__FILE__, lineHandler, fileHandler);
   /* debug print
   for (int i = 0; i < blueprintIndex; i++) {
@@ -311,7 +312,7 @@ int main() {
   for (int i = 0; i < min(blueprintIndex, 3); i++) {
     blueprint_t *blueprint = blueprints[i];
     int maxGeodes = run(blueprint, MAX_TIME_BUT_ELEPHANTS_GOT_HUNGRY);
-    geodeSum *= maxGeodes ;
+    geodeSum *= maxGeodes;
   }
   fprintf(stdout, "Part two: %d\n", geodeSum);
 #ifdef TEST_MODE
@@ -319,4 +320,5 @@ int main() {
 #else
   assert(geodeSum == 25056);
 #endif
+  exit(EXIT_SUCCESS);
 }

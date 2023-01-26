@@ -1,10 +1,11 @@
+#include <assert.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/types.h>
 // #define TEST_MODE
-#include "../../utils.h"
+#include "../utils.h"
 
 int cycleCount = 0;
 int xReg = 1;
@@ -35,13 +36,13 @@ void runCycle() {
   }
 }
 
+void fileHandler(int lines) { fprintf(stdout, "lines: %d\n", lines); }
+
 void lineHandler(char *line) {
-  fputs("line: ", stdout);
-  fputs(line, stdout);
+  fprintf(stdout, "line: %s\n", line);
   if (strncmp(line, "noop", 4) == 0) {
     // one cycle
     runCycle();
-
   } else if (strncmp(line, "addx", 4) == 0) {
     char *token;
     strtok(line, " ");
@@ -53,13 +54,19 @@ void lineHandler(char *line) {
     // after, add V to xReg
     xReg += V;
   }
-  fputs("\n", stdout);
 }
 
 int main() {
-  readInput(__FILE__, lineHandler);
+  init();
+  readInputFile(__FILE__, lineHandler, fileHandler);
   fprintf(stdout, "cycleCount: %d, xReg: %d\n", cycleCount, xReg);
   fprintf(stdout, "Part one: %d\n", signalSum);
+#ifdef TEST_MODE
+  assert(signalSum == 13140);
+#else
+  assert(signalSum == 15140);
+#endif
+
   fprintf(stdout, "Part two: \n");
 
   for (int i = 0; i < CRT_HEIGHT; i++) {
@@ -68,4 +75,5 @@ int main() {
     }
     fputc('\n', stdout);
   }
+  exit(EXIT_SUCCESS);
 }

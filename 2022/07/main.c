@@ -1,14 +1,11 @@
+#include "../utils.h"
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/types.h>
-#include "../utils.h"
 
 #define LINE_MAX 1024
-
-char cwd[LINE_MAX];
-
 typedef enum { DIRECTORY_T, FILE_T } type_t;
 
 typedef struct FS {
@@ -21,6 +18,7 @@ typedef struct FS {
 } FS;
 
 struct FS filesystem;
+struct FS *cwd = &filesystem;
 struct FS *all[LINE_MAX];
 u_int64_t allIndex = 0;
 
@@ -59,95 +57,88 @@ int compare(const void *a, const void *b) {
     return 1;
 }
 
-int main() {
-  init();
-  FILE *fp = fopen("./2022/7/input.txt", "r");
-  if (fp == NULL) {
-    perror("Unable to open file!");
-    exit(1);
+void fileHandler(int lines) { fprintf(stdout, "lines: %d\n", lines); }
+
+void lineHandler(char *line) {
+  fprintf(stdout, "line: %s\n", line);
+
+  if (strcmp(line, "$ cd /") == 0) {
+    strcpy(filesystem.name, "/");
+    filesystem.size = 0;
+    filesystem.type = DIRECTORY_T;
+    filesystem.filesystemIndex = 0;
+    filesystem.parent = NULL;
+    // done here
+    return;
   }
 
-  char chunk[LINE_MAX];
-
-  struct FS *cwd = &filesystem;
-
-  while (fgets(chunk, sizeof(chunk), fp) != NULL) {
-    fputs(chunk, stdout);
-
-    if (strcmp(chunk, "$ cd /\n") == 0) {
-      strcpy(filesystem.name, "/");
-      filesystem.size = 0;
-      filesystem.type = DIRECTORY_T;
-      filesystem.filesystemIndex = 0;
-      filesystem.parent = NULL;
-      continue;
-    }
-
-    if (chunk[0] == '$') {
-      // a command
-      if (strcmp(chunk, "$ ls\n") == 0) {
-        // we can basically ignore this, and assume that every other line
-        // that does not begin with $ is the output of `ls`
-      } else if (strcmp(chunk, "$ cd ..\n") == 0) {
-        cwd = cwd->parent;
-      } else if (strncmp(chunk, "$ cd ", 5) == 0) {
-        char *token;
-        token = strtok(chunk, " "); // $
-        token = strtok(NULL, " ");  // cd
-        token = strtok(NULL, " ");  // <dirname>\n
-        // trim newline off
-        token[strlen(token) - 1] = '\0';
-        // find the directory in the hierarchy and point cwd to it
-        for (u_int64_t i = 0; i <= cwd->filesystemIndex - 1; i++) {
-          if (strcmp(cwd->filesystem[i]->name, token) == 0) {
-            cwd = cwd->filesystem[i];
-            break;
-          }
+  if (line[0] == '$') {
+    // a command
+    if (strcmp(line, "$ ls") == 0) {
+      // we can basically ignore this, and assume that every other line
+      // that does not begin with $ is the output of `ls`
+    } else if (strcmp(line, "$ cd ..") == 0) {
+      cwd = cwd->parent;
+    } else if (strncmp(line, "$ cd ", 5) == 0) {
+      char *token;
+      token = strtok(line, " "); // $
+      token = strtok(NULL, " "); // cd
+      token = strtok(NULL, " "); // <dirname>\n
+      // trim newline off
+      token[strlen(token) - 1] = '\0';
+      // find the directory in the hierarchy and point cwd to it
+      for (u_int64_t i = 0; i <= cwd->filesystemIndex - 1; i++) {
+        if (strcmp(cwd->filesystem[i]->name, token) == 0) {
+          cwd = cwd->filesystem[i];
+          break;
         }
       }
-    } else {
-      // is files/directories
-      if (strncmp(chunk, "dir", 3) == 0) {
-        struct FS *directory;
-        directory = malloc(sizeof(FS));
-        char *token;
-        token = strtok(chunk, " "); // dir
-        token = strtok(NULL, " ");  // <dirname>\n
-        strncpy(directory->name, token, strlen(token) - 1);
-        directory->size = 0;
-        directory->type = DIRECTORY_T;
-        directory->filesystemIndex = 0;
-        directory->parent = cwd;
-        cwd->filesystem[cwd->filesystemIndex] = directory;
-        cwd->filesystemIndex++;
-        all[allIndex++] = directory;
-      } else {
-        fputs("file\n", stdout);
-        struct FS *file;
-        file = malloc(sizeof(FS));
-        char *token;
-        token = strtok(chunk, " ");
-        file->size = atoi(token);
-        token = strtok(NULL, " ");
-        strncpy(file->name, token, strlen(token) - 1);
-        file->type = FILE_T;
-        file->parent = cwd;
-        struct FS *parentPtr = file->parent;
-        do {
-          parentPtr->size += file->size;
-          parentPtr = parentPtr->parent;
-        } while (parentPtr != NULL);
-        cwd->filesystem[cwd->filesystemIndex] = file;
-        cwd->filesystemIndex++;
-        all[allIndex++] = file;
-      }
     }
-
-    fputs("\n", stdout);
+  } else {
+    // is files/directories
+    if (strncmp(line, "dir", 3) == 0) {
+      struct FS *directory;
+      directory = malloc(sizeof(FS));
+      char *token;
+      token = strtok(line, " "); // dir
+      token = strtok(NULL, " "); // <dirname>\n
+      strncpy(directory->name, token, strlen(token) - 1);
+      directory->size = 0;
+      directory->type = DIRECTORY_T;
+      directory->filesystemIndex = 0;
+      directory->parent = cwd;
+      cwd->filesystem[cwd->filesystemIndex] = directory;
+      cwd->filesystemIndex++;
+      all[allIndex++] = directory;
+    } else {
+      struct FS *file;
+      file = malloc(sizeof(FS));
+      char *token;
+      token = strtok(line, " ");
+      file->size = atoi(token);
+      token = strtok(NULL, " ");
+      strncpy(file->name, token, strlen(token) - 1);
+      file->type = FILE_T;
+      file->parent = cwd;
+      struct FS *parentPtr = file->parent;
+      do {
+        parentPtr->size += file->size;
+        parentPtr = parentPtr->parent;
+      } while (parentPtr != NULL);
+      cwd->filesystem[cwd->filesystemIndex] = file;
+      cwd->filesystemIndex++;
+      all[allIndex++] = file;
+    }
   }
+}
+
+int main() {
+  init();
+  readInputFile(__FILE__, lineHandler, fileHandler);
 
   // Print a tree representation of the filesystem
-  printDir(&filesystem, 0);
+  // printDir(&filesystem, 0);
+
   u_int64_t dirSum = 0;
   u_int64_t SIZE_LIMIT = 100000;
 
@@ -194,6 +185,5 @@ int main() {
     }
   }
   fprintf(stdout, "Part two: %lu\n", allSizes[partTwoIndex]);
-  fclose(fp);
   exit(EXIT_SUCCESS);
 }

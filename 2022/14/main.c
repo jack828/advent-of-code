@@ -1,3 +1,4 @@
+#include <assert.h>
 #include <limits.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -5,7 +6,7 @@
 #include <string.h>
 #include <sys/types.h>
 // #define TEST_MODE
-#include "../../utils.h"
+#include "../utils.h"
 
 #define PART_TWO
 
@@ -29,8 +30,8 @@ int sandSrc[2] = {0, 500};
 int sign(int x) { return x >= 0 ? 1 : -1; }
 
 void drawLine(int from[], int to[]) {
-  fprintf(stdout, "draw line (%d,%d) -> (%d,%d)\n", from[0], from[1], to[0],
-          to[1]);
+  // fprintf(stdout, "draw line (%d,%d) -> (%d,%d)\n", from[0], from[1], to[0],
+  // to[1]);
   if (from[0] == to[0]) {
     // Y same, so line is in X axis
     int fromX = min(from[1], to[1]);
@@ -62,9 +63,10 @@ void drawLine(int from[], int to[]) {
   lowestX = min(to[1], lowestX);
 }
 
+void fileHandler(int lines) { fprintf(stdout, "lines: %d\n", lines); }
+
 void lineHandler(char *line) {
-  fputs("line: ", stdout);
-  fputs(line, stdout);
+  fprintf(stdout, "line: %s\n", line);
 
   int prev[2] = {-1, -1};
   int next[2] = {-1, -1};
@@ -90,8 +92,6 @@ void lineHandler(char *line) {
       }
     }
   } while ((token = strtok_r(NULL, " ", &lineEnd)) != NULL);
-
-  fputs("\n", stdout);
 }
 
 void printGrid() {
@@ -167,7 +167,8 @@ bool dropSand() {
 }
 
 int main() {
-  readInput(__FILE__, lineHandler);
+  init();
+  readInputFile(__FILE__, lineHandler, fileHandler);
 #ifdef PART_TWO
   char *line = malloc(sizeof(char) * 20);
   sprintf(line, "0,%d -> %d,%d", highestY + 2, WIDTH, highestY + 2);
@@ -188,7 +189,18 @@ int main() {
   }
 #ifndef PART_TWO
   fprintf(stdout, "Part one: %d\n", sand);
+#ifdef TEST_MODE
+  assert(sand == 24);
 #else
-  fprintf(stdout, "Part two: %d\n", sand+1);
+  assert(sand == 638);
 #endif
+#else
+  fprintf(stdout, "Part two: %d\n", sand + 1);
+#ifdef TEST_MODE
+  assert(sand + 1 == 93);
+#else
+  assert(sand + 1 == 31722);
+#endif
+#endif
+  exit(EXIT_SUCCESS);
 }

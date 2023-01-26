@@ -4,8 +4,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/types.h>
-#define TEST_MODE
-#include "../../utils.h"
+// #define TEST_MODE
+#define _AOC_LINE_MAX 11000
+#include "../utils.h"
 
 typedef struct move_t {
   int direction;
@@ -39,9 +40,10 @@ int numberOfRocks = 5;
 move_t *currentMove = NULL;
 rock_t *currentRock = NULL;
 
+void fileHandler(int lines) { fprintf(stdout, "lines: %d\n", lines); }
+
 void lineHandler(char *line) {
-  fputs("line: ", stdout);
-  fputs(line, stdout);
+  fprintf(stdout, "line: %s\n", line);
 
   int length = strlen(line) - 1;
 
@@ -59,7 +61,6 @@ void lineHandler(char *line) {
   }
   current->next = moves;
   numberOfMoves = length;
-  fputs("\n", stdout);
 }
 
 void printMoves() {
@@ -131,7 +132,7 @@ void setupRocks() {
   rock4 = malloc(sizeof(rock_t));
   rock4->index = 3;
   rock4->character = '4';
-  rock4->shape = calloc(12, sizeof(char));
+  rock4->shape = calloc(13, sizeof(char));
   rock4->shape[0] = 1;
   rock4->shape[4] = 1;
   rock4->shape[8] = 1;
@@ -290,12 +291,14 @@ void printGrid() {
 }
 
 int main() {
-  readInput_n(__FILE__, lineHandler, 11000);
+  init();
+  readInputFile(__FILE__, lineHandler, fileHandler);
   // printMoves();
 
   currentMove = moves;
   setupRocks();
-        fprintf(stdout, "number of moves: %d, number of rocks: %d\n", numberOfMoves, numberOfRocks);
+  fprintf(stdout, "number of moves: %d, number of rocks: %d\n", numberOfMoves,
+          numberOfRocks);
 
   // int (*arr)[numberOfRocks] =
   // malloc(sizeof(int[numberOfMoves][numberOfRocks])); arr is pointer to
@@ -336,7 +339,7 @@ int main() {
         firstCycleHeight = highestRock;
         rocksPerCycle = rocksDropped;
       }
-      }
+    }
     // }
 
     // this is the first cycle _after_ finding the cycle
@@ -394,11 +397,12 @@ int main() {
   fprintf(stdout, "Part two: %lu\n", trillionRockHeight);
 
 #ifdef TEST_MODE
-  assert(trillionRockHeight == 1591977075756);
+  assert(trillionRockHeight == 1591977075756llu);
 #else
   // min 1591977078534
   // max 1591977075756
-  assert(trillionRockHeight > 1591977078534);
-  assert(trillionRockHeight < 1591977075756);
+  assert(trillionRockHeight > 1591977078534llu);
+  assert(trillionRockHeight < 1591977075756llu);
 #endif
+exit(EXIT_SUCCESS);
 }

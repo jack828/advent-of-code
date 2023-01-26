@@ -13,7 +13,7 @@
 #include <time.h>
 // #define TEST_MODE
 #include "../../lib/queue.h"
-#include "../../utils.h"
+#include "../utils.h"
 
 #define MAX_TIME 30
 
@@ -86,8 +86,6 @@ void lineHandler(char *line) {
   // fprintf(stdout, "valve %s -> rate %d -> valves '%s'\n", valve->id,
   // valve->flowRate, valve->rawValves);
   allValves[valveCount++] = valve;
-
-  fputs("\n", stdout);
 }
 
 void connectValves() {
@@ -377,6 +375,7 @@ int exploreValvesWithElephant() {
 }
 
 int main() {
+  init();
   readInputFile(__FILE__, lineHandler, fileHandler);
   srand(time(NULL));
   connectValves();
@@ -392,7 +391,7 @@ int main() {
   assert(partOne == 1896);
 #endif
 
-  // leaving in case it's needed another time
+  /* leaving in case it's needed another time
   int iterTimes = 2;
   clock_t t;
   t = clock();
@@ -408,7 +407,7 @@ int main() {
          time_taken * 1000 * 1000);
   printf("total time was %.2fs / %.2f m / %.2f h \n", total_time,
          total_time / 60, total_time / 60 / 60);
-  //
+  */
 
   int partTwo = exploreValvesWithElephant();
 
@@ -418,4 +417,5 @@ int main() {
 #else
   assert(partTwo == 2576);
 #endif
+  exit(EXIT_SUCCESS);
 }

@@ -5,7 +5,7 @@
 #include <string.h>
 #include <sys/types.h>
 // #define TEST_MODE
-#include "../../utils.h"
+#include "../utils.h"
 
 typedef struct rucksack_t {
   char *contents;
@@ -42,7 +42,6 @@ void printRucksacks() {
 }
 
 int priority(char c) {
-
   if (c >= 'a' && c <= 'z') {
     return c - 'a' + 1;
   }
@@ -54,6 +53,7 @@ int priority(char c) {
 }
 
 int main() {
+  init();
   readInputFile(__FILE__, lineHandler, fileHandler);
 
   // printRucksacks();
@@ -98,4 +98,5 @@ int main() {
 #else
   assert(groupPrioritySum == 2708);
 #endif
+  exit(EXIT_SUCCESS);
 }

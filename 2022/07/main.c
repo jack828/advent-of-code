@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/types.h>
+#include "../utils.h"
 
 #define LINE_MAX 1024
 
@@ -59,6 +60,7 @@ int compare(const void *a, const void *b) {
 }
 
 int main() {
+  init();
   FILE *fp = fopen("./2022/7/input.txt", "r");
   if (fp == NULL) {
     perror("Unable to open file!");
@@ -193,4 +195,5 @@ int main() {
   }
   fprintf(stdout, "Part two: %lu\n", allSizes[partTwoIndex]);
   fclose(fp);
+  exit(EXIT_SUCCESS);
 }

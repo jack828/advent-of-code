@@ -1,3 +1,4 @@
+#include "../utils.h"
 #include "input.h"
 #include <stdbool.h>
 #include <stdio.h>
@@ -44,6 +45,7 @@ u_int64_t findUniqueIndex(char *string, u_int64_t length) {
 }
 
 int main() {
+  init();
   /* FILE *fp = fopen("./6/input.txt", "r");
   if (fp == NULL) {
     perror("Unable to open file!");
@@ -91,4 +93,5 @@ int main() {
 
   // ----part two----
   fprintf(stdout, "Part two: %lu\n", findUniqueIndex(INPUT, 14));
+  exit(EXIT_SUCCESS);
 }

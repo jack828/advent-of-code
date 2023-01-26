@@ -5,7 +5,7 @@
 #include <string.h>
 #include <sys/types.h>
 // #define TEST_MODE
-#include "../../utils.h"
+#include "../utils.h"
 
 char **games;
 int gameIndex = 0;
@@ -73,6 +73,7 @@ int moveScore(int move) {
 }
 
 int main() {
+  init();
   readInputFile(__FILE__, lineHandler, fileHandler);
 
   int partOneScore = 0;
@@ -158,4 +159,5 @@ int main() {
 #else
   assert(partTwoScore == 12382);
 #endif
+  exit(EXIT_SUCCESS);
 }

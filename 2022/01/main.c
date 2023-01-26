@@ -5,7 +5,7 @@
 #include <string.h>
 #include <sys/types.h>
 // #define TEST_MODE
-#include "../../utils.h"
+#include "../utils.h"
 
 int *calories;
 int elfIndex = 0;
@@ -44,6 +44,7 @@ int compare(const void *a, const void *b) {
 }
 
 int main() {
+  init();
   readInputFile(__FILE__, lineHandler, fileHandler);
   // lack of trailing newline in input requires us to manually increment
   // elfIndex, so the last elf is recognised
@@ -70,4 +71,5 @@ int main() {
 #else
   assert(threeFattestElves == 215594);
 #endif
+  exit(EXIT_SUCCESS);
 }

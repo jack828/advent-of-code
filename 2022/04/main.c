@@ -5,7 +5,7 @@
 #include <string.h>
 #include <sys/types.h>
 // #define TEST_MODE
-#include "../../utils.h"
+#include "../utils.h"
 
 int fullyContainedGroups = 0;
 int overlappingGroups = 0;
@@ -16,6 +16,10 @@ bool contains(int aLeft, int aRight, int bLeft, int bRight) {
 
 bool overlaps(int aLeft, int aRight, int bLeft, int bRight) {
   return max(aLeft, aRight) >= min(bLeft, bRight);
+}
+
+void fileHandler(int lines) {
+  // do nothing here
 }
 
 void lineHandler(char *line) {
@@ -38,7 +42,8 @@ void lineHandler(char *line) {
 }
 
 int main() {
-  readInput(__FILE__, lineHandler);
+  init();
+  readInputFile(__FILE__, lineHandler, fileHandler);
 
   fprintf(stdout, "Part one: %d\n", fullyContainedGroups);
 #ifdef TEST_MODE
@@ -53,4 +58,5 @@ int main() {
 #else
   assert(overlappingGroups == 956);
 #endif
+  exit(EXIT_SUCCESS);
 }

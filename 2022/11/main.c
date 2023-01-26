@@ -5,13 +5,13 @@
 #include <string.h>
 #include <sys/types.h>
 // #define TEST_MODE
-#include "../../utils.h"
+#include "../utils.h"
 
 // change manually
 // #define PART_ONE
 
 #define MAX_ITEMS 4096
-typedef struct MONKEY {
+typedef struct monkey_t {
   int number;
   int falseMonkeyIndex;
   int trueMonkeyIndex;
@@ -21,22 +21,23 @@ typedef struct MONKEY {
   char operation;
   int operationNum;
   u_int64_t inspectionCount;
-} MONKEY;
+} monkey_t;
 
 u_int64_t supermod = 0;
 
-#define MAX_MONKEYS 7
-struct MONKEY *monkeys[MAX_MONKEYS];
+#define MAX_MONKEYS 8
+monkey_t *monkeys[MAX_MONKEYS];
 int monkeyIndex = -1;
 
+void fileHandler(int lines) { fprintf(stdout, "lines: %d\n", lines); }
+
 void lineHandler(char *line) {
-  fputs("line: ", stdout);
-  fputs(line, stdout);
+  fprintf(stdout, "line: %s\n", line);
 
   if (strncmp(line, "Monkey", 6) == 0) {
     // new monkey
     monkeyIndex++;
-    struct MONKEY *monkey = malloc(sizeof(MONKEY));
+    monkey_t *monkey = malloc(sizeof(monkey_t));
     monkey->number = monkeyIndex;
     monkey->itemCount = 0;
     monkey->inspectionCount = 0;
@@ -102,7 +103,6 @@ void lineHandler(char *line) {
 
 void doTheMonkeyThrows() {
   // for 20 rounds
-
 #ifdef PART_ONE
   for (int round = 0; round < 20; round++) {
 #else
@@ -112,29 +112,23 @@ void doTheMonkeyThrows() {
 
       fprintf(stdout, "\nAfter round 20:\n");
       for (int testMonkey = 0; testMonkey <= monkeyIndex; testMonkey++) {
-        struct MONKEY *monkey = monkeys[testMonkey];
+        monkey_t *monkey = monkeys[testMonkey];
         fprintf(stdout, "monkey %d: inspected %lu\n", monkey->number,
                 monkey->inspectionCount);
       }
     }
 #endif
-    // fprintf(stdout, "round: %d\n", round);
 
     // test every monkey in series
     for (int testMonkey = 0; testMonkey <= monkeyIndex; testMonkey++) {
-      struct MONKEY *monkey = monkeys[testMonkey];
-      // fprintf(stdout, "monkey #%d, operation: %c, opNum: %d, items: %d\n",
-      //         monkey->number, monkey->operation, monkey->operationNum,
-      //         monkey->itemCount);
+      monkey_t *monkey = monkeys[testMonkey];
 
       // DEBUG: list items
-      for (int itemIndex = 0; itemIndex < monkey->itemCount; itemIndex++) {
-        // fprintf(stdout, "%lu,", monkey->items[itemIndex]);
-      }
-      // fputc('\n', stdout);
+      // for (int itemIndex = 0; itemIndex < monkey->itemCount; itemIndex++) {
+      // fprintf(stdout, "%lu,", monkey->items[itemIndex]);
+      // }
       // test each item the monkey holds
       for (int itemIndex = 0; itemIndex < monkey->itemCount; itemIndex++) {
-        // fprintf(stdout, "Start %lu,", monkey->items[itemIndex]);
         // inspect item = item <operation> <operationNum>
         monkey->inspectionCount++;
         switch (monkey->operation) {
@@ -148,27 +142,20 @@ void doTheMonkeyThrows() {
           monkey->items[itemIndex] += monkey->operationNum;
           break;
         default:
-          // TODO handle if this happens i guess
-          // fprintf(stdout, "unknown op: %c\n", monkey->operation);
-          exit(1);
+          exit(EXIT_FAILURE);
           break;
         }
-        // fprintf(stdout, "inspected %lu,", monkey->items[itemIndex]);
 
 #ifdef PART_ONE
         // divide by 3 and floor result
         monkey->items[itemIndex] = monkey->items[itemIndex] / 3;
-        // fprintf(stdout, "bored %lu,", monkey->items[itemIndex]);
 #else
         monkey->items[itemIndex] = monkey->items[itemIndex] % supermod;
 #endif
 
         // then perform test
         // throw to new monkey
-        struct MONKEY *nextMonkey = NULL;
-
-        // fprintf(stdout, "test %lu,",
-        // monkey->items[itemIndex] % monkey->testCase);
+        monkey_t *nextMonkey = NULL;
 
         if (monkey->items[itemIndex] % monkey->testCase == 0) {
           // true monkey
@@ -177,15 +164,11 @@ void doTheMonkeyThrows() {
           // false monkey
           nextMonkey = monkeys[monkey->falseMonkeyIndex];
         }
-        // fprintf(stdout, "next monkey %d (new # items %lu)",
-        // nextMonkey->number, nextMonkey->itemCount);
         nextMonkey->items[nextMonkey->itemCount] = monkey->items[itemIndex];
         nextMonkey->itemCount++;
-        // fputc('\n', stdout);
       }
       // monkey has no more items now
       monkey->itemCount = 0;
-      // fputc('\n', stdout);
     }
   }
 }
@@ -223,14 +206,15 @@ void calculateSupermod() {
 }
 
 int main() {
-  readInput(__FILE__, lineHandler);
+  init();
+  readInputFile(__FILE__, lineHandler, fileHandler);
 
   calculateSupermod();
   doTheMonkeyThrows();
 
   fprintf(stdout, "\nAfter rounds:\n");
   for (int testMonkey = 0; testMonkey <= monkeyIndex; testMonkey++) {
-    struct MONKEY *monkey = monkeys[testMonkey];
+    monkey_t *monkey = monkeys[testMonkey];
     fprintf(stdout, "monkey %d: inspected %lu\n", monkey->number,
             monkey->inspectionCount);
   }
@@ -238,7 +222,7 @@ int main() {
   u_int64_t inspectionCounts[MAX_MONKEYS];
   int index = 0;
   for (int testMonkey = 0; testMonkey <= monkeyIndex; testMonkey++) {
-    struct MONKEY *monkey = monkeys[testMonkey];
+    monkey_t *monkey = monkeys[testMonkey];
     inspectionCounts[index++] = monkey->inspectionCount;
   }
 
@@ -248,6 +232,11 @@ int main() {
 
 #ifdef PART_ONE
   fprintf(stdout, "Part one: %lu\n", sum);
+#ifdef TEST_MODE
+  assert(sum == 10605);
+#else
+  assert(sum == 117624);
+#endif
 #else
   fprintf(stdout, "Part two: %lu\n", sum);
 #ifdef TEST_MODE
@@ -257,4 +246,5 @@ int main() {
 #endif
 
 #endif
+  exit(EXIT_SUCCESS);
 }

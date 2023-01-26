@@ -5,7 +5,7 @@
 #include <string.h>
 #include <sys/types.h>
 // #define TEST_MODE
-#include "../../utils.h"
+#include "../utils.h"
 
 #define DECRYPTION_KEY 811589153
 
@@ -26,6 +26,8 @@ list_t *decryptedList;
 list_t *firstDecryptedItem;
 
 int itemCount = 0;
+
+void fileHandler(int lines) { fprintf(stdout, "lines: %d\n", lines); }
 
 void lineHandler(char *line) {
   fprintf(stdout, "line: %s\n", line);
@@ -144,7 +146,8 @@ void mix(list_t *list) {
 }
 
 int main() {
-  readInput(__FILE__, lineHandler);
+  init();
+  readInputFile(__FILE__, lineHandler, fileHandler);
 
   // circulate them listy bois
   originalList->next = firstItem;
@@ -183,4 +186,5 @@ int main() {
 #else
   assert(partTwo == 3760092545849l);
 #endif
+  exit(EXIT_SUCCESS);
 }

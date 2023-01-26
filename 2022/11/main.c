@@ -7,9 +7,6 @@
 // #define TEST_MODE
 #include "../utils.h"
 
-// change manually
-// #define PART_ONE
-
 #define MAX_ITEMS 4096
 typedef struct monkey_t {
   int number;
@@ -18,6 +15,8 @@ typedef struct monkey_t {
   int testCase;
   u_int64_t items[MAX_ITEMS];
   u_int64_t itemCount;
+  u_int64_t originalItems[MAX_ITEMS];
+  u_int64_t originalItemCount;
   char operation;
   int operationNum;
   u_int64_t inspectionCount;
@@ -40,20 +39,24 @@ void lineHandler(char *line) {
     monkey_t *monkey = malloc(sizeof(monkey_t));
     monkey->number = monkeyIndex;
     monkey->itemCount = 0;
+    monkey->originalItemCount = 0;
     monkey->inspectionCount = 0;
     monkeys[monkeyIndex] = monkey;
   } else if (strncmp(line, "  Starting", 10) == 0) {
+    monkey_t *monkey = monkeys[monkeyIndex];
     // parse item array
     char *token = strtok(line, ":"); // discard start
     token = strtok(NULL, ":");       // now token is the item list
 
     char *itemToken = strtok(token, ",");
     do {
-      monkeys[monkeyIndex]->items[monkeys[monkeyIndex]->itemCount++] =
-          atoi(itemToken);
+      monkey->items[monkey->itemCount++] = atoi(itemToken);
 
       itemToken = strtok(NULL, ",");
     } while (itemToken != NULL);
+
+    memcpy(monkey->originalItems, monkey->items, monkey->itemCount);
+    monkey->originalItemCount = monkey->itemCount;
   } else if (strncmp(line, "  Operation", 11) == 0) {
     // parse operation
     char *operation;
@@ -101,24 +104,8 @@ void lineHandler(char *line) {
   }
 }
 
-void doTheMonkeyThrows() {
-  // for 20 rounds
-#ifdef PART_ONE
-  for (int round = 0; round < 20; round++) {
-#else
-  for (int round = 0; round < 10000; round++) {
-
-    if (round == 20) {
-
-      fprintf(stdout, "\nAfter round 20:\n");
-      for (int testMonkey = 0; testMonkey <= monkeyIndex; testMonkey++) {
-        monkey_t *monkey = monkeys[testMonkey];
-        fprintf(stdout, "monkey %d: inspected %lu\n", monkey->number,
-                monkey->inspectionCount);
-      }
-    }
-#endif
-
+void doTheMonkeyThrows(int limit, u_int64_t (*worryModifier)(u_int64_t)) {
+  for (int round = 0; round < limit; round++) {
     // test every monkey in series
     for (int testMonkey = 0; testMonkey <= monkeyIndex; testMonkey++) {
       monkey_t *monkey = monkeys[testMonkey];
@@ -146,12 +133,7 @@ void doTheMonkeyThrows() {
           break;
         }
 
-#ifdef PART_ONE
-        // divide by 3 and floor result
-        monkey->items[itemIndex] = monkey->items[itemIndex] / 3;
-#else
-        monkey->items[itemIndex] = monkey->items[itemIndex] % supermod;
-#endif
+        monkey->items[itemIndex] = worryModifier(monkey->items[itemIndex]);
 
         // then perform test
         // throw to new monkey
@@ -205,12 +187,25 @@ void calculateSupermod() {
   supermod = lcm;
 }
 
+u_int64_t divideByThree(u_int64_t worryLevel) { return worryLevel / 3; }
+
+u_int64_t modSuperMod(u_int64_t worryLevel) { return worryLevel % supermod; }
+
+void resetMonkeys() {
+  for (int i = 0; i <= monkeyIndex; i++) {
+    monkey_t *monkey = monkeys[i];
+    monkey->inspectionCount = 0;
+    monkey->itemCount = monkey->originalItemCount;
+    memcpy(monkey->items, monkey->originalItems, monkey->originalItemCount);
+  }
+}
+
 int main() {
   init();
   readInputFile(__FILE__, lineHandler, fileHandler);
 
   calculateSupermod();
-  doTheMonkeyThrows();
+  doTheMonkeyThrows(20, divideByThree);
 
   fprintf(stdout, "\nAfter rounds:\n");
   for (int testMonkey = 0; testMonkey <= monkeyIndex; testMonkey++) {
@@ -219,32 +214,51 @@ int main() {
             monkey->inspectionCount);
   }
 
-  u_int64_t inspectionCounts[MAX_MONKEYS];
+  u_int64_t inspectionCountsP1[MAX_MONKEYS];
   int index = 0;
   for (int testMonkey = 0; testMonkey <= monkeyIndex; testMonkey++) {
     monkey_t *monkey = monkeys[testMonkey];
-    inspectionCounts[index++] = monkey->inspectionCount;
+    inspectionCountsP1[index++] = monkey->inspectionCount;
   }
 
-  qsort(inspectionCounts, index, sizeof(u_int64_t), compare);
-  u_int64_t sum =
-      inspectionCounts[monkeyIndex - 1] * inspectionCounts[monkeyIndex];
+  qsort(inspectionCountsP1, index, sizeof(u_int64_t), compare);
+  u_int64_t partOneSum =
+      inspectionCountsP1[monkeyIndex - 1] * inspectionCountsP1[monkeyIndex];
 
-#ifdef PART_ONE
-  fprintf(stdout, "Part one: %lu\n", sum);
+  fprintf(stdout, "Part one: %lu\n", partOneSum);
 #ifdef TEST_MODE
-  assert(sum == 10605);
+  assert(partOneSum == 10605);
 #else
-  assert(sum == 117624);
-#endif
-#else
-  fprintf(stdout, "Part two: %lu\n", sum);
-#ifdef TEST_MODE
-  assert(sum == 2713310158);
-#else
-  assert(sum == 16792940265);
+  assert(partOneSum == 117624);
 #endif
 
+  // TODO maybe actually resetting is faster idk
+  monkeyIndex = -1;
+  readInputFile(__FILE__, lineHandler, fileHandler);
+  doTheMonkeyThrows(10000, modSuperMod);
+
+  fprintf(stdout, "\nAfter rounds:\n");
+  for (int testMonkey = 0; testMonkey <= monkeyIndex; testMonkey++) {
+    monkey_t *monkey = monkeys[testMonkey];
+    fprintf(stdout, "monkey %d: inspected %lu\n", monkey->number,
+            monkey->inspectionCount);
+  }
+  u_int64_t inspectionCountsP2[MAX_MONKEYS];
+  index = 0;
+  for (int testMonkey = 0; testMonkey <= monkeyIndex; testMonkey++) {
+    monkey_t *monkey = monkeys[testMonkey];
+    inspectionCountsP2[index++] = monkey->inspectionCount;
+  }
+
+  qsort(inspectionCountsP2, index, sizeof(u_int64_t), compare);
+  u_int64_t partTwoSum =
+      inspectionCountsP2[monkeyIndex - 1] * inspectionCountsP2[monkeyIndex];
+  fprintf(stdout, "Part two: %lu\n", partTwoSum);
+#ifdef TEST_MODE
+  assert(partTwoSum == 2713310158);
+#else
+  assert(partTwoSum == 16792940265);
 #endif
+
   exit(EXIT_SUCCESS);
 }

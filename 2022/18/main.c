@@ -5,7 +5,7 @@
 #include <string.h>
 #include <sys/types.h>
 // #define TEST_MODE
-#include "../../utils.h"
+#include "../utils.h"
 
 #define MAX_CUBES 2030
 #define MAX_X 30
@@ -25,9 +25,10 @@ typedef struct cube_t {
 cube_t *cubes[MAX_CUBES];
 int cubeIndex = 0;
 
+void fileHandler(int lines) { fprintf(stdout, "lines: %d\n", lines); }
+
 void lineHandler(char *line) {
-  fputs("line: ", stdout);
-  fputs(line, stdout);
+  fprintf(stdout, "line: %s\n", line);
 
   int x = atoi(strtok(line, ","));
   int y = atoi(strtok(NULL, ","));
@@ -70,7 +71,8 @@ void flood(int x, int y, int z) {
 }
 
 int main() {
-  readInput(__FILE__, lineHandler);
+  init();
+  readInputFile(__FILE__, lineHandler, fileHandler);
 
   int totalSides = cubeIndex * 6;
   int connectedSides = 0;
@@ -144,4 +146,5 @@ int main() {
 #else
   assert(waterSides == 2066);
 #endif
+  exit(EXIT_SUCCESS);
 }

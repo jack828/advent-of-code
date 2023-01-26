@@ -1,9 +1,12 @@
-#include "../utils.h"
+#include <assert.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/types.h>
+// TODO fails on test input /shrug
+// #define TEST_MODE
+#include "../utils.h"
 
 #define LINE_MAX 1024
 typedef enum { DIRECTORY_T, FILE_T } type_t;
@@ -151,6 +154,11 @@ int main() {
   }
 
   fprintf(stdout, "Part one: %lu\n", dirSum);
+#ifdef TEST_MODE
+  assert(dirSum == 95437);
+#else
+  assert(dirSum == 1350966);
+#endif
 
   // Get all directory sizes in an array
   u_int64_t allSizes[allIndex];
@@ -185,5 +193,10 @@ int main() {
     }
   }
   fprintf(stdout, "Part two: %lu\n", allSizes[partTwoIndex]);
+#ifdef TEST_MODE
+  assert(allSizes[partTwoIndex] == 24933642);
+#else
+  assert(allSizes[partTwoIndex] == 6296435);
+#endif
   exit(EXIT_SUCCESS);
 }

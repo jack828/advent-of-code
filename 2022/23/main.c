@@ -6,7 +6,7 @@
 #include <string.h>
 #include <sys/types.h>
 // #define TEST_MODE
-#include "../../utils.h"
+#include "../utils.h"
 
 #ifdef TEST_MODE
 #define GRID_SIZE 50
@@ -303,6 +303,7 @@ int countEmpty() {
 }
 
 int main() {
+  init();
   readInputFile(__FILE__, lineHandler, fileHandler);
 
   setupChecks();
@@ -338,4 +339,5 @@ int main() {
 #else
   assert(rounds == 1055);
 #endif
+  exit(EXIT_SUCCESS);
 }

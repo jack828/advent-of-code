@@ -8,7 +8,7 @@
 #define TEST_MODE
 #include "../../lib/pqueue.h"
 #include "../../lib/queue.h"
-#include "../../utils.h"
+#include "../utils.h"
 
 #ifdef TEST_MODE
 #define HEIGHT 6
@@ -44,6 +44,8 @@ int endX = WIDTH - 2;
 
 blizzard_t *blizzards[HEIGHT * WIDTH] = {0};
 int blizzardCount = 0;
+
+void fileHandler(int lines) { fprintf(stdout, "lines: %d\n", lines); }
 
 int lineY = 0;
 void lineHandler(char *line) {
@@ -170,11 +172,12 @@ bool isValid(int minute, int y, int x) {
   // if ((y == startY && x == startX) ||(y == endY && x == endX)) {
   // return true;
   // }
-  // printf("%d (%d,%d)\n", minute, y, x);
+  printf("%d (%d,%d)\n", minute, y, x);
   // is within bounds and not in the wall (there are two gaps for start/end)
   if (y >= 0 && y <= HEIGHT && x >= 0 && x <= WIDTH && map[y][x] == 0) {
     // and does not have a blizzard there (direction/count irrelevant)
     if (!grid[minute % CYCLES][y][x]) {
+      printf("valid %d (%d,%d)\n", minute, y, x);
       visited[minute][y][x]++;
       return true;
     }
@@ -277,7 +280,7 @@ int DFS(int aY, int aX, int bY, int bX, int minute) {
     for (int i = 0; i < 5; i++) {
       point_t *newPoint = malloc(sizeof(point_t));
       // escape hatch in case of failure
-      if (point->m >= 500) {
+      if (point->m >= 200) {
         continue;
       }
       newPoint->y = point->y + dY[i];
@@ -302,7 +305,8 @@ int DFS(int aY, int aX, int bY, int bX, int minute) {
 }
 
 int main() {
-  readInput(__FILE__, lineHandler);
+  init();
+  readInputFile(__FILE__, lineHandler, fileHandler);
   calculateBlizzards();
 
   // int partOneTime = DFS(startY, startX, endY, endX, 0);
@@ -319,13 +323,21 @@ int main() {
          map[startY][startX]);
   // TODO doesnt get right path lenghths or i am not adding them up properly
   // DFS can't find a path from end->start
-  int partTwoTime = aStar(endY, endX, startY, startX, partOneTime + 1);
-  fprintf(stdout, "back: %d\n", partTwoTime);
-  partTwoTime += DFS(startY, startX, endY, endX, partTwoTime);
+  // try checking
+  //  - visited/other globals/etc are reset each time
+  //  - can wait at start pos
+  int toTheStart = DFS(endY, endX, startY, startX, partOneTime);
+  fprintf(stdout, "toTheStart: %d (should be 23), total %d\n",
+          toTheStart - partOneTime, toTheStart);
+  int andBackAgain = DFS(startY, startX, endY, endX, toTheStart);
+  fprintf(stdout, "andBackAgain: %d (should be 13) total: %d\n",
+          andBackAgain - toTheStart, andBackAgain);
+  int partTwoTime = 3;
   fprintf(stdout, "Part two: %d\n", partTwoTime);
 #ifdef TEST_MODE
   assert(partTwoTime == 54);
 #else
   assert(partTwoTime == 69);
 #endif
+  exit(EXIT_SUCCESS);
 }

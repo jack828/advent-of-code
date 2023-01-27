@@ -367,7 +367,7 @@ int main(int argc, char **argv) {
   if (arguments.day != NULL) {
     strcat(path, arguments.day);
   } else {
-    strcat(path, "0*");
+    strcat(path, "*");
   }
   strcat(path, "/main.out");
 

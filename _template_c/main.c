@@ -5,7 +5,7 @@
 #include <string.h>
 #include <sys/types.h>
 #define TEST_MODE
-#include "../../utils.h"
+#include "../utils.h"
 
 void fileHandler(int lines) {
   fprintf(stdout, "lines: %d\n", lines);
@@ -16,6 +16,7 @@ void lineHandler(char *line) {
 }
 
 int main() {
+  init();
   readInputFile(__FILE__, lineHandler, fileHandler);
 
   /* well implemented program goes here */
@@ -33,4 +34,5 @@ int main() {
 #else
   assert(420 == 69);
 #endif
+  exit(EXIT_SUCCESS);
 }

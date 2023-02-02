@@ -4,7 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/types.h>
-#define TEST_MODE
+// #define TEST_MODE
 #include "../utils.h"
 
 typedef enum type_t { TYPE_LIST, TYPE_NUMBER } type_t;
@@ -37,7 +37,6 @@ void list_add(list_t *list, item_t *item) {
   if (list->items == NULL) {
     list->items = malloc(list->length * sizeof(item_t *));
   } else {
-
     list->items = realloc(list->items, list->length * sizeof(item_t *));
   }
 }
@@ -224,7 +223,7 @@ compare_result_t compare(item_t *left, item_t *right) {
     rightItemList->list = malloc(sizeof(list_t));
     rightItemList->list->isDivider = false;
     rightItemList->list->items = malloc(200 * sizeof(item_t *));
-    rightItemList->list->items[0] = left;
+    rightItemList->list->items[0] = right;
     rightItemList->list->length = 1;
     return compare(left, rightItemList);
   }
@@ -242,17 +241,34 @@ compare_result_t compare(item_t *left, item_t *right) {
   return RESULT_NULL;
 }
 
+int qsortcompare(const void *left, const void *right) {
+  list_t *leftList = *(list_t **)left;
+  list_t *rightList = *(list_t **)right;
+
+  item_t *leftItem = malloc(sizeof(item_t));
+  leftItem->type = TYPE_LIST;
+  leftItem->list = leftList;
+  item_t *rightItem = malloc(sizeof(item_t));
+  rightItem->type = TYPE_LIST;
+  rightItem->list = rightList;
+
+  if (compare(leftItem, rightItem) == RESULT_TRUE)
+    return -1;
+  else
+    return 1;
+}
+
 int main() {
   init();
   readInputFile(__FILE__, lineHandler, fileHandler);
 
-  printLists();
+  // printLists();
 
   int rightOrderIndexesSum = 0;
   for (int i = 0; i < listCount; i += 2) {
-    // TODO convert into items to be able to use same function
     list_t *leftList = lists[i];
     list_t *rightList = lists[i + 1];
+    // convert into items for simpler compare function
     item_t *leftItem = malloc(sizeof(item_t));
     leftItem->type = TYPE_LIST;
     leftItem->list = leftList;
@@ -272,11 +288,27 @@ int main() {
   assert(rightOrderIndexesSum == 5529);
 #endif
 
-  fprintf(stdout, "Part two: %d\n", 420);
+  // parse and add the divider packets
+  lineHandler("[[2]]");
+  lineHandler("[[6]]");
+
+  lists[listCount - 1]->isDivider = true;
+  lists[listCount - 2]->isDivider = true;
+  // sort the array using the comparison function
+  qsort(lists, listCount, sizeof(list_t *), qsortcompare);
+  int dividerIndexProduct = 1;
+  for (int i = 0; i < listCount; i++) {
+    list_t *list = lists[i];
+    if (list->isDivider) {
+      dividerIndexProduct *= i + 1;
+    }
+  }
+
+  fprintf(stdout, "Part two: %d\n", dividerIndexProduct);
 #ifdef TEST_MODE
-  assert(420 == 140);
+  assert(dividerIndexProduct == 140);
 #else
-  assert(420 == 27690);
+  assert(dividerIndexProduct == 27690);
 #endif
   exit(EXIT_SUCCESS);
 }

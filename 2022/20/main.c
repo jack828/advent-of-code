@@ -11,6 +11,7 @@
 
 typedef struct list_t {
   int64_t value;
+  int64_t moves;
   struct list_t *next;
   struct list_t *prev;
   // to preserve iteration order
@@ -27,16 +28,28 @@ list_t *firstDecryptedItem;
 
 int itemCount = 0;
 
-void fileHandler(int lines) { fprintf(stdout, "lines: %d\n", lines); }
+void fileHandler(int lines) {
+  fprintf(stdout, "lines: %d\n", lines);
+  itemCount = lines;
+}
 
 void lineHandler(char *line) {
   fprintf(stdout, "line: %s\n", line);
 
   list_t *item = malloc(sizeof(list_t));
   item->value = atoi(line);
+  item->moves = item->value;
+  if (abs(item->moves) > itemCount) {
+    item->moves = item->moves % (itemCount - 1);
+  }
+
   list_t *decryptedItem = malloc(sizeof(list_t));
   decryptedItem->value = item->value * DECRYPTION_KEY;
-  itemCount++;
+  decryptedItem->moves = decryptedItem->value;
+
+  if (abs(decryptedItem->moves) > itemCount) {
+    decryptedItem->moves = decryptedItem->moves % (itemCount - 1);
+  }
 
   if (originalList == NULL) {
     originalList = item;
@@ -60,7 +73,7 @@ void lineHandler(char *line) {
 void printList(list_t *list, int dir) {
   list_t *item = list;
   for (int i = 0; i < itemCount; i++) {
-    fprintf(stdout, "%ld, ", item->value);
+    fprintf(stdout, "%ld (%ld), ", item->value, item->moves);
     if (dir == 1) {
       item = item->next;
     } else {
@@ -71,11 +84,7 @@ void printList(list_t *list, int dir) {
 }
 
 void moveItem(list_t *item) {
-  int64_t moves = item->value;
-  if (abs(moves) > itemCount) {
-    // we could definitely optimise this by pre-calculating
-    moves = moves % (itemCount - 1);
-  }
+  int64_t moves = item->moves;
   // zero moves does not affect the list
   if (moves == 0) {
     return;
@@ -149,6 +158,7 @@ int main() {
   init();
   readInputFile(__FILE__, lineHandler, fileHandler);
 
+  fprintf(stdout, "items: %d\n", itemCount);
   // circulate them listy bois
   originalList->next = firstItem;
   originalList->originalNext = firstItem;

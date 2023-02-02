@@ -20,7 +20,7 @@ typedef struct list_t {
   struct item_t **items;
   int length;
   bool isDivider;
-  // printing only
+  // parsing only
   struct list_t *parent;
 } list_t;
 
@@ -31,14 +31,13 @@ typedef struct item_t {
 } item_t;
 
 void list_add(list_t *list, item_t *item) {
-  list->items[list->length++] = item;
-  return;
   list->length++;
   if (list->items == NULL) {
     list->items = malloc(list->length * sizeof(item_t *));
   } else {
     list->items = realloc(list->items, list->length * sizeof(item_t *));
   }
+  list->items[list->length - 1] = item;
 }
 
 list_t **lists;
@@ -60,7 +59,7 @@ void lineHandler(char *line) {
   list_t *list = malloc(sizeof(list_t));
   list->isDivider = false;
   // TODO see how it compares with realloc
-  list->items = malloc(200 * sizeof(item_t *));
+  list->items = NULL;
   list->length = 0;
 
   list_t *topLevelList = list;
@@ -79,7 +78,7 @@ void lineHandler(char *line) {
       item->type = TYPE_LIST;
       item->list = malloc(sizeof(list_t));
       item->list->isDivider = false;
-      item->list->items = malloc(200 * sizeof(item_t *));
+      item->list->items = NULL;
       item->list->length = 0;
       list_add(list, item);
       item->list->parent = list;
@@ -222,9 +221,9 @@ compare_result_t compare(item_t *left, item_t *right) {
     rightItemList->type = TYPE_LIST;
     rightItemList->list = malloc(sizeof(list_t));
     rightItemList->list->isDivider = false;
-    rightItemList->list->items = malloc(200 * sizeof(item_t *));
-    rightItemList->list->items[0] = right;
-    rightItemList->list->length = 1;
+    rightItemList->list->items = NULL;
+    rightItemList->list->length = 0;
+    list_add(rightItemList->list, right);
     return compare(left, rightItemList);
   }
   if (left->type == TYPE_NUMBER && right->type == TYPE_LIST) {
@@ -232,9 +231,9 @@ compare_result_t compare(item_t *left, item_t *right) {
     leftItemList->type = TYPE_LIST;
     leftItemList->list = malloc(sizeof(list_t));
     leftItemList->list->isDivider = false;
-    leftItemList->list->items = malloc(200 * sizeof(item_t *));
-    leftItemList->list->items[0] = left;
-    leftItemList->list->length = 1;
+    leftItemList->list->items = NULL;
+    leftItemList->list->length = 0;
+    list_add(leftItemList->list, left);
     return compare(leftItemList, right);
   }
   // should not get here

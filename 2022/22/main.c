@@ -10,8 +10,16 @@
 #include "../../utils.h"
 
 char **grid = NULL;
-int gridHeight = 12;
+int gridHeight = 0;
 int gridWidth = 0;
+// maybe store cube in 3d array of each face
+// then when we go out of bounds we can warp """"""easier""""""
+char ***cube = NULL; // pointer to a pointer to a pointer to a char wtaf
+int cubeHeight = 0;
+int cubeWidth = 0;
+int FACES = 6;
+
+// input parsing only
 int lineY = 0;
 
 enum FACING { RIGHT = 0, DOWN, LEFT, UP };
@@ -38,6 +46,7 @@ void fileHandler(int lines) {
   fprintf(stdout, "lines: %d\n", lines);
   // one line for movements, one newline separation
   gridHeight = lines - 2;
+  cubeHeight = gridHeight / 4;
 }
 
 void lineHandler(char *line) {
@@ -49,6 +58,14 @@ void lineHandler(char *line) {
     grid = malloc(gridHeight * sizeof(char *));
     for (int i = 0; i < gridHeight; i++) {
       grid[i] = calloc(gridWidth, sizeof(char));
+    }
+    cubeWidth = gridWidth / 3;
+    cube = malloc(FACES * sizeof(char **));
+    for (int i = 0; i < FACES; i++) {
+      cube[i] = malloc(cubeHeight * sizeof(char *));
+      for (int j = 0; j < cubeHeight; j++) {
+        cube[i][j] = calloc(cubeWidth, sizeof(char));
+      }
     }
   }
 
@@ -94,6 +111,34 @@ void lineHandler(char *line) {
     }
   }
   lineY++;
+}
+
+void parseCube () {
+
+}
+
+void printCube() {
+  fprintf(stdout, "cube: %dx%d (%d)\n", cubeHeight, cubeWidth,
+          cubeHeight * cubeWidth);
+
+  for (int i = 0; i < FACES; i++) {
+  fprintf(stdout, "face: %d\n",i);
+  for (int j = 0; j < gridHeight; j++) {
+    for (int k = 0; k < gridWidth; k++) {
+      if (j == startY && i == startX) {
+        fputc('s', stdout);
+      } else if (j == currY && k == currX) {
+        fputc('e', stdout);
+      } else if (cube[i][j][k]) {
+        fputc(cube[i][j][k], stdout);
+      } else {
+        fputc(' ', stdout);
+      }
+    }
+    fputs("\n", stdout);
+  }
+  }
+  fputs("\n", stdout);
 }
 
 void printGrid() {
@@ -163,16 +208,16 @@ void doTheMoves() {
           // check for out of bounds or wrapping before attempting move
           // TODO part two probably here
           // fprintf(stdout, "inst: while: (%d,%d), g h: %d, g w: %d\n", newY,
-                  // newX, gridHeight, gridWidth);
+          // newX, gridHeight, gridWidth);
           if (newY >= gridHeight) {
             newY = 0;
           } else if (newY < 0) {
-            newY = gridHeight-1;
+            newY = gridHeight - 1;
           }
           if (newX >= gridWidth) {
             newX = 0;
           } else if (newX < 0) {
-            newX = gridWidth-1;
+            newX = gridWidth - 1;
           }
           // fprintf(stdout, "y: %d, x: %d - '%c'\n", newY, newX,
           // grid[newY][newX]);
@@ -297,6 +342,8 @@ int main() {
   assert(password == 3590);
 #endif
 
+    parseCube();
+    printCube();
   fprintf(stdout, "Part two: %d\n", 420);
 #ifdef TEST_MODE
   assert(420 == 69);

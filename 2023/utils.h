@@ -18,7 +18,7 @@ void sigxcpu_handler(int signum) {
 
 void init() { signal(SIGXCPU, sigxcpu_handler); }
 
-void readInputFile(const char *file, void (*lineHandler)(char *),
+void readInputFile(const char *file, void (*lineHandler)(char *, int length),
                    void (*fileHandler)(int)) {
   char path[_AOC_LINE_MAX];
   path[0] = '\0';
@@ -50,11 +50,12 @@ void readInputFile(const char *file, void (*lineHandler)(char *),
 
   char line[_AOC_LINE_MAX];
   while (fgets(line, sizeof(line), fp) != NULL) {
+    int length = strlen(line);
     // trim trailing newline
-    if (strlen(line) > 1) {
+    if (length > 1) {
       line[strcspn(line, "\n")] = '\0';
     }
-    lineHandler(line);
+    lineHandler(line, length);
   }
   fclose(fp);
 }

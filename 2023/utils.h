@@ -18,7 +18,7 @@ void sigxcpu_handler(int signum) {
 
 void init() { signal(SIGXCPU, sigxcpu_handler); }
 
-void readInputFile(const char *file, void (*lineHandler)(char *, int length),
+void readInputFile(const char *file, void (*lineHandler)(char *, int),
                    void (*fileHandler)(int)) {
   char path[_AOC_LINE_MAX];
   path[0] = '\0';

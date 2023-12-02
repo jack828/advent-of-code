@@ -11,8 +11,8 @@ void fileHandler(int lines) {
   fprintf(stdout, "lines: %d\n", lines);
 }
 
-void lineHandler(char *line) {
-  fprintf(stdout, "line: %s\n", line);
+void lineHandler(char *line, int length) {
+  fprintf(stdout, "line (%d): %s\n", length, line);
 }
 
 int main() {

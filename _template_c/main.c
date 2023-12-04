@@ -8,11 +8,11 @@
 #include "../utils.h"
 
 void fileHandler(int lines) {
-  fprintf(stdout, "lines: %d\n", lines);
+  printf("lines: %d\n", lines);
 }
 
 void lineHandler(char *line, int length) {
-  fprintf(stdout, "line (%d): %s\n", length, line);
+  printf("line (%d): %s\n", length, line);
 }
 
 int main() {
@@ -21,14 +21,14 @@ int main() {
 
   /* well implemented program goes here */
 
-  fprintf(stdout, "Part one: %d\n", 69);
+  printf("Part one: %d\n", 69);
 #ifdef TEST_MODE
   assert(69 == 420);
 #else
   assert(69 == 420);
 #endif
 
-  fprintf(stdout, "Part two: %d\n", 420);
+  printf("Part two: %d\n", 420);
 #ifdef TEST_MODE
   assert(420 == 69);
 #else

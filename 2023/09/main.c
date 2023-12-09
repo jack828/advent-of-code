@@ -4,8 +4,10 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/types.h>
-#define TEST_MODE
+// #define TEST_MODE
 #include "../utils.h"
+
+typedef enum { FORWARDS, BACKWARDS } dir_t;
 
 typedef struct {
   int size;
@@ -52,11 +54,9 @@ void print_histories() {
 history_t *get_diff(history_t *history) {
   // for each item in the array
   // calculate the difference between them
-  // history_t diffs = {.items = calloc(history->size - 1, sizeof(int)),
-  //                    .size = 0};
   history_t *diff_hist = calloc(1, sizeof(history_t));
   diff_hist->items = calloc(30, sizeof(int));
-  for (int i = 0; i < history->size-1; i++) {
+  for (int i = 0; i < history->size - 1; i++) {
     int diff = history->items[i + 1] - history->items[i];
     diff_hist->items[diff_hist->size++] = diff;
   }
@@ -64,23 +64,24 @@ history_t *get_diff(history_t *history) {
   return diff_hist;
 }
 
-int calculate_difference(history_t *history) {
-  printf("calculate_difference\n");
+int calculate_difference(history_t *history, dir_t dir) {
   history_t *diffs = get_diff(history);
   // if all differences are 0, goto DONE:
   bool all_zero = true;
 
-  printf("\t[ ");
   for (int i = 0; i < diffs->size; i++) {
-    printf("%d ", diffs->items[i]);
     if (diffs->items[i] != 0) {
       all_zero = false;
     }
   }
-  printf("]\n");
   // if they are not, repeat by calculating the difference between differences
   if (!all_zero) {
-    return diffs->items[diffs->size - 1] + calculate_difference(diffs);
+    if (dir == FORWARDS) {
+      return diffs->items[diffs->size - 1] + calculate_difference(diffs, dir);
+    } else {
+      // BACKWARDS
+      return diffs->items[0] - calculate_difference(diffs, dir);
+    }
   }
   // DONE:
   // sum the last values of each difference array
@@ -91,29 +92,34 @@ int main() {
   init();
   readInputFile(__FILE__, lineHandler, fileHandler);
 
-  print_histories();
+  // print_histories();
 
   int part_one = 0;
+  int part_two = 0;
+
   for (int i = 0; i < history_count; i++) {
     history_t *history = histories[i];
-    printf("> history %d, size %d\n", i, history->size);
-    int diff = calculate_difference(history);
-    int next_term = history->items[history->size - 1] + diff;
+    int diff_fwd = calculate_difference(history, FORWARDS);
+    int next_term = history->items[history->size - 1] + diff_fwd;
     part_one += next_term;
+
+    int diff = calculate_difference(history, BACKWARDS);
+    int prev_term = history->items[0] - diff;
+    part_two += prev_term;
   }
 
   printf("Part one: %d\n", part_one);
 #ifdef TEST_MODE
-  // assert(part_one == 114);
+  assert(part_one == 114);
 #else
   assert(part_one == 2098530125);
 #endif
 
-  printf("Part two: %d\n", 420);
+  printf("Part two: %d\n", part_two);
 #ifdef TEST_MODE
-  assert(420 == 69);
+  assert(part_two == 2);
 #else
-  assert(420 == 69);
+  assert(part_two == 1016);
 #endif
   exit(EXIT_SUCCESS);
 }

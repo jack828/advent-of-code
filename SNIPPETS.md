@@ -35,7 +35,7 @@ void lineHandler(char *line, int length) {
   printf("line (%d): %s\n", length, line);
 
   if (width == 0) {
-    width = length;
+    width = length - 1;
     for (int i = 0; i < height; i++) {
       grid[i] = calloc(width, sizeof(char));
     }

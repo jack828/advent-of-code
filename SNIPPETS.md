@@ -20,14 +20,14 @@ It contains:
 ## Dynamically allocated 2D array
 
 ```c
-char **map;
+char **grid;
 int height = 0;
 int width = 0;
 int line_i = 0;
 
 void fileHandler(int lines) {
   printf("lines: %d\n", lines);
-  map = calloc(lines, sizeof(char *));
+  grid = calloc(lines, sizeof(char *));
   height = lines;
 }
 
@@ -37,11 +37,21 @@ void lineHandler(char *line, int length) {
   if (width == 0) {
     width = length;
     for (int i = 0; i < height; i++) {
-      map[i] = calloc(width, sizeof(char));
+      grid[i] = calloc(width, sizeof(char));
     }
   }
 
-  strncpy(map[line_i++], line, length);
+  strncpy(grid[line_i++], line, length);
+}
+
+void print_grid(char **grid_to_print) {
+  for (int y = 0; y < height; y++) {
+    for (int x = 0; x < width; x++) {
+      int c = grid_to_print[y][x];
+      printf("%c", c == 0 ? '.' : c);
+    }
+    printf("\n");
+  }
 }
 ```
 

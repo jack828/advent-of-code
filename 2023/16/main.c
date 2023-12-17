@@ -4,7 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/types.h>
-#define TEST_MODE
+// #define TEST_MODE
 #include "../../lib/queue.h"
 #include "../utils.h"
 
@@ -53,11 +53,15 @@ void print_grid(char **grid_to_print) {
   }
 }
 
-void print_energised() {
+void print_energised(bool show_nums) {
   for (int y = 0; y < height; y++) {
     for (int x = 0; x < width; x++) {
       int c = energised[y][x];
-      printf("%c", c == 0 ? '.' : '0' + c);
+      if (show_nums) {
+        printf("%c", c == 0 ? '.' : '0' + c);
+      } else {
+        printf("%c", c == 0 ? '.' : '#');
+      }
     }
     printf("\n");
   }
@@ -68,7 +72,6 @@ int count_energised() {
   for (int y = 0; y < height; y++) {
     for (int x = 0; x < width; x++) {
       int c = energised[y][x];
-
       if (c) {
         count++;
       }
@@ -77,23 +80,28 @@ int count_energised() {
   return count;
 }
 
-bool loop_check(dir_t dir, int y, int x) { return energised[y][x] & dir; }
-int main() {
-  init();
-  readInputFile(__FILE__, lineHandler, fileHandler);
+void reset_energised() {
+  // FIXME probably a faster way of doing this without the y loop
+  for (int y = 0; y < height; y++) {
+    memset(energised[y], 0, width * sizeof(energised[0][0]));
+  }
+}
 
-  print_grid(grid);
+bool loop_check(dir_t dir, int y, int x) {
+  // non-zero if we have visited this tile from this direction before
+  return energised[y][x] & dir;
+}
 
+void run(int startY, int startX, dir_t start_dir) {
   queue_t *queue = q_create();
 
   beam_t *start_beam = malloc(sizeof(beam_t));
-  start_beam->dir = EAST;
-  start_beam->y = 0;
-  start_beam->x = -1;
+  start_beam->dir = start_dir;
+  start_beam->y = startY;
+  start_beam->x = startX;
   q_enqueue(queue, start_beam);
 
   while (!q_empty(queue)) {
-    // printf("energised: %d\n", count_energised());
     beam_t *beam = q_dequeue(queue);
     dir_t dir = beam->dir;
     int y = beam->y;
@@ -206,11 +214,17 @@ int main() {
     }
     energised[newY][newX] |= dir;
   }
-  printf("\n");
   q_destroy(queue);
+}
 
-  // print_grid(energised);
-  print_energised();
+int main() {
+  init();
+  readInputFile(__FILE__, lineHandler, fileHandler);
+
+  // print_grid(grid);
+
+  run(0, -1, EAST);
+
   int part_one = count_energised();
   printf("Part one: %d\n", part_one);
 #ifdef TEST_MODE
@@ -219,11 +233,41 @@ int main() {
   assert(part_one == 6795);
 #endif
 
-  printf("Part two: %d\n", 420);
+  // maximum possible energised tile count
+  int part_two = 0;
+  // N edge going SOUTH
+  for (int x = 1; x < width; x++) {
+    run(-1, x, SOUTH);
+    int count = count_energised();
+    part_two = max(part_two, count);
+    reset_energised();
+  }
+  // S edge going NORTH
+  for (int x = 1; x < width; x++) {
+    run(height, x, NORTH);
+    int count = count_energised();
+    part_two = max(part_two, count);
+    reset_energised();
+  }
+  // E edge going WEST
+  for (int y = 1; y < height; y++) {
+    run(y, -1, WEST);
+    int count = count_energised();
+    part_two = max(part_two, count);
+    reset_energised();
+  }
+  // W edge going EAST
+  for (int y = 1; y < height; y++) {
+    run(y, width, EAST);
+    int count = count_energised();
+    part_two = max(part_two, count);
+    reset_energised();
+  }
+  printf("Part two: %d\n", part_two);
 #ifdef TEST_MODE
-  assert(420 == 69);
+  assert(part_two == 51);
 #else
-  assert(420 == 69);
+  assert(part_two == 7154);
 #endif
   exit(EXIT_SUCCESS);
 }

@@ -14,6 +14,7 @@ It contains:
 
  - Priority Queue
  - Queue
+ - Hashmap (bring-your-own-hasher)
 
 # Common bits
 
@@ -124,6 +125,15 @@ int main() {
 }
 ```
 
+# Data Structures
+
+## Hashmap
+
+ - [2023 Day 14](2023/14/main.c)
+   - Not using `lib.h`
+   - But does use djb2 hash algorithm
+ - [2023 Day 17](2023/17/main.c)
+
 # Algorithms
 
 ## Flood Fill
@@ -131,9 +141,10 @@ int main() {
  - 3D [2022 Day 18](./2022/18/main.c)
  - 2D [2023 Day 10](./2023/10/main.c)
 
-## A*
+## Dijkstra's
 
  - [2022 Day 24](2022/24/main.c)
+ - [2023 Day 17](2023/17/main.c)
 
 ## DFS (Depth First Search)
 

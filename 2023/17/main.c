@@ -5,8 +5,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/types.h>
-#define TEST_MODE
-#define HASHMAP_SIZE (2 << 16)
+// #define TEST_MODE
+#define HASHMAP_SIZE (1000 * 1000)
 #include "../../lib/hashmap.h"
 #include "../../lib/pqueue.h"
 #include "../utils.h"
@@ -46,7 +46,7 @@ void lineHandler(char *line, int length) {
   seen[height] = calloc(width, sizeof(int));
   for (int x = 0; x < width; x++) {
     grid[height][x] = line[x] - '0';
-    seen[height][x] = INT_MAX;
+    seen[height][x] = 0;
   }
   height++;
 }
@@ -91,24 +91,24 @@ char *dir_str(dir_t dir) {
 int cost(int aY, int aX, int bY, int bX) { return abs(aY - bY) + abs(aX - bX); }
 
 unsigned long hash_point(point_t *point) {
-  // unsigned long hash = 0;
-  // hash |= (point->y);
-  // hash |= (point->x) << 8;
-  // hash |= (point->straight_count) << 16;
-  // hash |= (point->dir) << 24;
-  unsigned long hash = 5381;
-
-  int c;
-
-  c = point->y;
-  hash = ((hash << 5) + hash) + c; /* hash * 33 + c */
-  c = point->x;
-  hash = ((hash << 5) + hash) + c; /* hash * 33 + c */
-  c = point->dir;
-  hash = ((hash << 5) + hash) + c; /* hash * 33 + c */
-  c = point->straight_count;
-  hash = ((hash << 5) + hash) + c; /* hash * 33 + c */
-
+  unsigned long hash = 0;
+  hash |= (unsigned long)(point->y);
+  hash |= (unsigned long)(point->x) << 8;
+  hash |= (unsigned long)(point->straight_count) << 16;
+  hash |= (unsigned long)(point->dir) << 24;
+  // unsigned long hash = 5381;
+  //
+  // int c;
+  //
+  // c = point->y;
+  // hash = ((hash << 5) + hash) + c; /* hash * 33 + c */
+  // c = point->x;
+  // hash = ((hash << 5) + hash) + c; /* hash * 33 + c */
+  // c = point->dir;
+  // hash = ((hash << 5) + hash) + c; /* hash * 33 + c */
+  // c = point->straight_count;
+  // hash = ((hash << 5) + hash) + c; /* hash * 33 + c */
+  //
   return hash % HASHMAP_SIZE;
 }
 
@@ -125,16 +125,20 @@ int dijkstra(int aY, int aX, int bY, int bX) {
   pq_enqueue(queue, start, 0);
 
   printf("(%d, %d) --> (%d, %d)\n", aY, aX, bY, bX);
-  hm_set(hashmap, hash_point(start), 0);
 
+  int *s = malloc(sizeof(int));
+  *s = 1;
+  hm_set(hashmap, hash_point(start), s);
+
+  seen[aY][aX] = 1;
   // north, south, east, west
   int dY[] = {-1, 1, 0, 0};
   int dX[] = {0, 0, 1, -1};
   int dD[] = {NORTH, SOUTH, EAST, WEST};
   while (!pq_empty(queue)) {
     point_t *point = pq_dequeue(queue);
-    printf("(%d, %d) %s - %d\n", point->y, point->x, dir_str(point->dir),
-           point->heat_loss);
+    // printf("\n(%d, %d) %s - %d\n", point->y, point->x, dir_str(point->dir),
+           // point->heat_loss);
     if (point->y == bY && point->x == bX) {
       min_heat_loss = point->heat_loss;
       break;
@@ -151,8 +155,10 @@ int dijkstra(int aY, int aX, int bY, int bX) {
       new_point->straight_count = point->straight_count;
 
       // out of bounds
-      if (new_point->y < 0 || new_point->y > height - 1 || new_point->x < 0 ||
-          new_point->x > width) {
+      if (new_point->y < 0 || new_point->y >= height || new_point->x < 0 ||
+          new_point->x >= width) {
+        // printf("    oob (%d, %d) %s\n", new_point->y, new_point->x,
+               // dir_str(new_point->dir));
         free(new_point);
         continue;
       }
@@ -184,24 +190,21 @@ int dijkstra(int aY, int aX, int bY, int bX) {
       // int p_cost =
       // cost(new_point->y, new_point->x, bY, bX); //+ new_point->heat_loss;
 
-      // FIXME and this stuff gives the wrong answer (but less wrong than
-      // hashmap)
-      //
-      // have we been here before at a better cost
-      /* if (seen[new_point->y][new_point->x] <= new_point->heat_loss) {
-        free(new_point);
-        continue;
-      } else {
-        seen[new_point->y][new_point->x] = new_point->heat_loss;
-      } */
-
-      // FIXME if you come back to this, i think there's something wrong with
-      // the implementation here to check for "already visited" points
+      /* if (seen[new_point->y][new_point->x]) {
+     printf("visited (%d, %d) %s\n", new_point->y, new_point->x,
+            dir_str(new_point->dir));
+       free(new_point);
+       continue;
+     } else {
+       seen[new_point->y][new_point->x] = new_point->heat_loss;
+     } */
+      // printf("    new (%d, %d) %s h: %d->%d\n", new_point->y, new_point->x,
+             // dir_str(new_point->dir), point->heat_loss, new_point->heat_loss);
       unsigned long hash = hash_point(new_point);
       int *pvalue = hm_get(hashmap, hash);
       if (pvalue != NULL) {
-        int value = *pvalue;
-        printf(" val %d - %d\n", value, new_point->heat_loss);
+        // int value = *pvalue;
+        // printf(" val %d - %d\n", value, new_point->heat_loss);
         free(new_point);
         continue;
       } else {
@@ -209,9 +212,10 @@ int dijkstra(int aY, int aX, int bY, int bX) {
         *v = 1;
         hm_set(hashmap, hash, v);
       }
-      printf("> (%d, %d) %s - loss %d, str %d\n", new_point->y, new_point->x,
-             dir_str(new_point->dir), new_point->heat_loss,
-             new_point->straight_count);
+
+      // printf("> (%d, %d) %s - loss %d, str %d\n", new_point->y, new_point->x,
+      //        dir_str(new_point->dir), new_point->heat_loss,
+      //        new_point->straight_count);
       pq_enqueue(queue, new_point, new_point->heat_loss);
     }
     free(point);
@@ -235,10 +239,7 @@ int main() {
 #ifdef TEST_MODE
   assert(min_heat_loss == 102);
 #else
-  assert(min_heat_loss != 814);
-  assert(min_heat_loss < 813);
-  assert(min_heat_loss > 655);
-  assert(min_heat_loss == 420);
+  assert(min_heat_loss == 785);
 #endif
 
   printf("Part two: %d\n", 420);

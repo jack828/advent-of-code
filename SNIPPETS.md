@@ -48,7 +48,7 @@ void lineHandler(char *line, int length) {
 void print_grid(char **grid_to_print) {
   for (int y = 0; y < height; y++) {
     for (int x = 0; x < width; x++) {
-      int c = grid_to_print[y][x];
+      char c = grid_to_print[y][x];
       printf("%c", c == 0 ? '.' : c);
     }
     printf("\n");
@@ -140,6 +140,7 @@ int main() {
 
  - 3D [2022 Day 18](./2022/18/main.c)
  - 2D [2023 Day 10](./2023/10/main.c)
+ - 2D [2023 Day 18](2023/18/main.c)
 
 ## Dijkstra's
 
@@ -151,3 +152,9 @@ int main() {
  - [2022 Day 24](2022/24/main.c)
  - [2023 Day 10](2023/10/main.c)
 
+## Shoelace Formula
+
+Area of an irregular non-intersecting polygon.
+Also Pick's Theorem.
+
+ - [2023 Day 18](2023/18/main.c)

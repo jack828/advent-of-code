@@ -18,6 +18,10 @@ int y_max = 0;
 int x_max = 0;
 int y_min = INT_MAX;
 int x_min = INT_MAX;
+int **coords;
+int coord_count = 0;
+int y_pos_2 = 0;
+int x_pos_2 = 0;
 
 void fileHandler(int lines) {
   printf("lines: %d\n", lines);
@@ -25,6 +29,8 @@ void fileHandler(int lines) {
   for (int y = 0; y <= HEIGHT; y++) {
     grid[y] = calloc(WIDTH, sizeof(char));
   }
+
+  coords = calloc(lines, sizeof(char *));
 }
 
 void lineHandler(char *line, int length) {
@@ -63,6 +69,33 @@ void lineHandler(char *line, int length) {
     y_min = min(y_min, y_pos);
     x_min = min(x_min, x_pos);
   }
+
+  // Ignore `(#`
+  col_s += 2;
+  char dir_c = col_s[5];
+  col_s[5] = '\0'; // set end so we parse 5 digits
+  int dis_2 = strtol(col_s, NULL, 16);
+
+  switch (dir_c) {
+  case '0': // R - E
+    x_pos_2 += dis_2;
+    break;
+  case '1': // D - S
+    y_pos_2 += dis_2;
+    break;
+  case '2': // L - W
+    x_pos_2 -= dis_2;
+    break;
+  case '3': // U - N
+    y_pos_2 -= dis_2;
+    break;
+  }
+
+  int *pos = calloc(2, sizeof(int));
+  pos[0] = y_pos_2;
+  pos[1] = x_pos_2;
+  coords[coord_count++] = pos;
+  // printf("%d: (%d, %d)\n", coord_count - 1, pos[0], pos[1]);
 }
 
 void print_grid() {
@@ -121,14 +154,13 @@ int main() {
   init();
   readInputFile(__FILE__, lineHandler, fileHandler);
 
-  print_grid();
+  // print_grid();
 
   int *p1_flood_point = find_flood_point(grid);
 
   flood(p1_flood_point[0], p1_flood_point[1]);
 
-  printf("---\n");
-  print_grid();
+  // print_grid();
 
   int filled = 0;
   for (int y = y_min; y <= y_max; y++) {
@@ -145,11 +177,38 @@ int main() {
   assert(filled == 42317);
 #endif
 
-  printf("Part two: %d\n", 420);
+  /* for (int i = 0; i < coord_count; i++) {
+    int *c_1 = coords[i];
+    // int *c_2 = coords[i + 1];
+    int y_1 = c_1[0];
+    int x_1 = c_1[1];
+
+    printf("%d: (%d, %d)\n", i, y_1, x_1);
+  } */
+
+  long long a_2 = 0;
+  long long a_perimeter = 0;
+
+  // Can't say i'm a fan of shoelace
+  for (int i = 0; i < coord_count; i++) {
+    int *c_1 = coords[i];
+    int *c_2 = coords[(i + 1) % (coord_count)];
+    long long y_1 = c_1[0];
+    long long y_2 = c_2[0];
+    long long x_1 = c_1[1];
+    long long x_2 = c_2[1];
+
+    long long res = (x_1 * y_2) - (x_2 * y_1);
+    a_2 += res;
+    a_perimeter += llabs(y_1 - y_2) + llabs(x_1 - x_2);
+  }
+  // Pick's / picks theorem
+  long long area = (a_2 / 2) + (a_perimeter / 2) + 1;
+  printf("Part two: %lld\n", area);
 #ifdef TEST_MODE
-  assert(420 == 69);
+  assert(area == 952408144115ll);
 #else
-  assert(420 == 69);
+  assert(area == 83605563360288ll);
 #endif
   exit(EXIT_SUCCESS);
 }

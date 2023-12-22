@@ -4,7 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/types.h>
-#define TEST_MODE
+// #define TEST_MODE
 #include "../../lib/queue.h"
 #include "../utils.h"
 
@@ -310,12 +310,12 @@ void get_ranges(queue_t *q, workflow_t *workflow, int **range) {
       switch (rule->accept_type) {
       case ACCEPT:
         q_enqueue(q, clone_range(range));
-        continue;
+        break;
       case REJECT:
-        return;
+        break;
       case WORKFLOW:
         get_ranges(q, rule->workflow, clone_range(range));
-        continue;
+        break;
       }
     }
 
@@ -327,13 +327,13 @@ void get_ranges(queue_t *q, workflow_t *workflow, int **range) {
 
       switch (rule->accept_type) {
       case ACCEPT:
-        q_enqueue(q, clone_range(range));
-        continue;
+        q_enqueue(q, clone_range(new_range));
+        break;
       case REJECT:
-        return;
+        break;
       case WORKFLOW:
         get_ranges(q, rule->workflow, clone_range(new_range));
-        continue;
+        break;
       }
     }
 
@@ -345,13 +345,13 @@ void get_ranges(queue_t *q, workflow_t *workflow, int **range) {
 
       switch (rule->accept_type) {
       case ACCEPT:
-        q_enqueue(q, clone_range(range));
-        continue;
+        q_enqueue(q, clone_range(new_range));
+        break;
       case REJECT:
-        return;
+        break;
       case WORKFLOW:
         get_ranges(q, rule->workflow, clone_range(new_range));
-        continue;
+        break;
       }
     }
   }
@@ -365,11 +365,11 @@ int main() {
   // print_parts();
   link_workflows();
   workflow_t *start = find_workflow("in");
-  if (start) {
+  /* if (start) {
     printf("start: '%s'\n", start->id);
-  }
+  } */
 
-  printf("in -> px: '%s'\n", start->rules[0]->workflow->id);
+  // printf("in -> px: '%s'\n", start->rules[0]->workflow->id);
 
   int part_rating_sum = 0;
   for (int i = 0; i < part_count; i++) {
@@ -402,10 +402,9 @@ int main() {
 
   unsigned long long rating_combinations = 0;
 
+  // I guess that's one way to do a dynamic array
   queue_t *queue = q_create();
   get_ranges(queue, start, range);
-
-  printf("q size: %d\n", queue->size);
 
   while (!q_empty(queue)) {
     int **r = q_dequeue(queue);
@@ -416,7 +415,7 @@ int main() {
 #ifdef TEST_MODE
   assert(rating_combinations == 167409079868000llu);
 #else
-  assert(rating_combinations == 69);
+  assert(rating_combinations == 131899818301477llu);
 #endif
   exit(EXIT_SUCCESS);
 }

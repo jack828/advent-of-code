@@ -22,38 +22,42 @@ It contains:
 
 ```c
 char **grid;
-int height = 0;
+char **visited;
+int height = -1;
 int width = 0;
-int line_i = 0;
+
+typedef struct {
+  int y;
+  int x;
+  int s;
+} point_t;
 
 void fileHandler(int lines) {
   printf("lines: %d\n", lines);
   grid = calloc(lines, sizeof(char *));
-  height = lines;
 }
 
 void lineHandler(char *line, int length) {
   printf("line (%d): %s\n", length, line);
 
   if (width == 0) {
-    width = length - 1;
-    for (int i = 0; i < height; i++) {
-      grid[i] = calloc(width, sizeof(char));
-    }
+    width = length - 2;
   }
 
-  strncpy(grid[line_i++], line, length);
+  grid[++height] = calloc(width, sizeof(char));
+  strncpy(grid[height], line, length);
 }
 
 void print_grid(char **grid_to_print) {
-  for (int y = 0; y < height; y++) {
-    for (int x = 0; x < width; x++) {
+  for (int y = 0; y <= height; y++) {
+    for (int x = 0; x <= width; x++) {
       char c = grid_to_print[y][x];
       printf("%c", c == 0 ? '.' : c);
     }
     printf("\n");
   }
 }
+
 ```
 
 ## 2D Grid Parsed
@@ -125,6 +129,17 @@ int main() {
 }
 ```
 
+## strtok_r while loop
+
+```c
+  char *end;
+  char *delim = " ";
+  char *token = strtok_r(line, delim, &end);
+  do {
+    // stuff
+  } while ((token = strtok_r(NULL, delim, &end)) != NULL);
+```
+
 # Data Structures
 
 ## Hashmap
@@ -151,6 +166,7 @@ int main() {
 
  - [2022 Day 24](2022/24/main.c)
  - [2023 Day 10](2023/10/main.c)
+ - [2023 Day 21](2023/21/main.c)
 
 ## Shoelace Formula
 

@@ -30,6 +30,9 @@ typedef struct node_t {
   // struct node_t *outputs; // probably faster
   uint32_t *output_ids;
   int output_id_count;
+
+  // for part two
+  uint32_t pulsed_high_at;
 } node_t;
 
 typedef struct action_t {
@@ -42,6 +45,8 @@ node_t **nodes;
 int nodeCount = 0;
 node_t *broadcaster;
 node_t *rx;
+node_t *rx_input;
+int button_presses = 0;
 
 // TODO lib file!
 char *split(char *str, const char *delim) {
@@ -97,6 +102,7 @@ void lineHandler(char *line, int length) {
     node->input_ids = calloc(32, sizeof(uint32_t));
     node->input_memory = calloc(32, sizeof(state_t));
     node->input_id_count = 0;
+    node->pulsed_high_at = 0;
   }
   node->output_ids =
       calloc(strlen(dst), sizeof(uint32_t)); // oversized but ohwell
@@ -146,15 +152,15 @@ node_t *findNodeById(uint32_t id) {
 // TODO this could do the mapping to output_node_pointers
 // also sets `rx` as a valid node
 void findConjunctionInputs() {
-  printf("findConjunctionInputs\n");
+  // printf("findConjunctionInputs\n");
   for (int i = 0; i < nodeCount; i++) {
     node_t *node = nodes[i];
-    printf("Node: %d, %c\n", node->id, node->type);
+    // printf("Node: %d, %c\n", node->id, node->type);
 
     for (int j = 0; j < node->output_id_count; j++) {
       node_t *output_node = findNodeById(node->output_ids[j]);
       if (output_node == NULL) {
-        printf("rx node %d [j: %d]\n", node->output_ids[j], j);
+        // printf("rx node %d [j: %d]\n", node->output_ids[j], j);
 
         rx = calloc(1, sizeof(node_t));
         rx->id = str_to_node_id("rx");
@@ -164,7 +170,7 @@ void findConjunctionInputs() {
         nodes[nodeCount++] = rx;
         continue;
       }
-      printf("output node: %d, %c\n", output_node->id, output_node->type);
+      // printf("output node: %d, %c\n", output_node->id, output_node->type);
       if (output_node->type == CONJUNCTION) {
         output_node->input_ids[output_node->input_id_count++] = node->id;
       }
@@ -196,6 +202,15 @@ void q_action(queue_t *queue, node_t *input, node_t *output, pulse_t pulse) {
   q_enqueue(queue, action);
 }
 
+bool isInputNode(node_t *node) {
+  for (int i = 0; i < rx_input->input_id_count; i++) {
+    if (node->id == rx_input->input_ids[i]) {
+      return true;
+    }
+  }
+  return false;
+}
+
 int low_pulses = 0;
 int high_pulses = 0;
 
@@ -208,10 +223,12 @@ void pushButton() {
     action_t *action = q_dequeue(queue);
     node_t *node = action->output;
     pulse_t pulse = action->pulse;
-    if (pulse == HIGH) {
-      high_pulses++;
-    } else {
-      low_pulses++;
+    if (button_presses < 1000) {
+      if (pulse == HIGH) {
+        high_pulses++;
+      } else {
+        low_pulses++;
+      }
     }
 
     // printf("action!: %d, %c -> %d\n", node->id, node->type, pulse);
@@ -242,7 +259,6 @@ void pushButton() {
         q_action(queue, node, output_node, node->state == ON ? HIGH : LOW);
       }
     } else if (node->type == CONJUNCTION) {
-      // printf("conjunction memory: TODO\n");
       node_t *input = action->input;
 
       int input_id_index = -1;
@@ -268,20 +284,21 @@ void pushButton() {
       }
       // printf("conjunction memory all_high %d\n", all_high);
 
+      // if it is an INPUT to rx->input_ids[0]
+      // AND
+      // the output will be HIGH
+      if (!all_high) {
+        if (!node->pulsed_high_at && isInputNode(node)) {
+          // not entirely sure why +1 is needed
+          // maybe "the press after this would output the correct signal"
+          node->pulsed_high_at = button_presses + 1;
+        }
+      }
+
       for (int j = 0; j < node->output_id_count; j++) {
         node_t *output_node = findNodeById(node->output_ids[j]);
-        if (output_node == NULL) {
-          // printf("rx node %d [j: %d]\n", node->output_ids[j], j);
-
-          if (all_high) {
-            low_pulses++;
-          } else {
-            high_pulses++;
-          }
-
-          continue;
-        }
-        // printf("\toutput: %d, %c\n", output_node->id, output_node->type);
+        // printf("\toutput: %d, %c --> %d\n", output_node->id,
+        // output_node->type, all_high ? LOW : HIGH);
         q_action(queue, node, output_node, all_high ? LOW : HIGH);
       }
     }
@@ -290,17 +307,28 @@ void pushButton() {
   q_destroy(queue);
 }
 
+// time to beat, 14ms
 int main() {
   init();
   readInputFile(__FILE__, lineHandler, fileHandler);
 
   findConjunctionInputs();
 
-  printNodes();
+  // printNodes();
 
-  int button_presses = 0;
-  for (; button_presses < 1000; button_presses++) {
+  rx_input = findNodeById(rx->input_ids[0]);
+
+  // TODO definitely a "better" way, since this may not cover all inputs
+  for (; button_presses < 5000; button_presses++) {
     pushButton();
+  }
+
+  unsigned long long part_two = 1;
+  for (int i = 0; i < rx_input->input_id_count; i++) {
+    node_t *rx_input_input = findNodeById(rx_input->input_ids[i]);
+    // printf("rx input input: %d, %c == %d\n", rx_input_input->id,
+    // rx_input_input->type, rx_input_input->pulsed_high_at);
+    part_two *= rx_input_input->pulsed_high_at;
   }
 
   int part_one = low_pulses * high_pulses;
@@ -308,26 +336,14 @@ int main() {
 #ifdef TEST_MODE
   assert(part_one == 32000000);
 #else
-  assert(part_one > 643966834);
-  assert(part_one > 261000000);
   assert(part_one == 743871576);
-
 #endif
 
 #ifdef TEST_MODE
   // NO DATA
-  // assert(420 == 69);
 #else
-// TODO free some memory boi
-// continue until pulsed_rx_low == true
-// bool pulsed_rx_low = false;
-// while (!pulsed_rx_low) {
-//   pulsed_rx_low = pushButton();
-//   button_presses++;
-// }
-//
-// printf("Part two: %d\n", button_presses);
-// assert(420 == 69);
+  printf("Part two: %llu\n", part_two);
+  assert(part_two == 244151741342687);
 #endif
   exit(EXIT_SUCCESS);
 }

@@ -23,11 +23,12 @@ typedef struct node_t {
   type_t type; // %, &, B, R
   state_t state;
 
+  struct node_t **input_nodes;
   uint32_t *input_ids;
   state_t *input_memory;
   int input_id_count;
 
-  // struct node_t *outputs; // probably faster
+  struct node_t **output_nodes;
   uint32_t *output_ids;
   int output_id_count;
 
@@ -47,6 +48,8 @@ node_t *broadcaster;
 node_t *rx;
 node_t *rx_input;
 int button_presses = 0;
+int low_pulses = 0;
+int high_pulses = 0;
 
 // TODO lib file!
 char *split(char *str, const char *delim) {
@@ -76,29 +79,25 @@ void lineHandler(char *line, int length) {
   printf("line (%d): %s\n", length, line);
   char *dst;
   dst = split(line, " -> ");
-  printf("src: %s\n", line);
-  printf("dst: %s\n", dst);
   node_t *node = calloc(1, sizeof(node_t));
 
   if (strcmp("broadcaster", line) == 0) {
-    printf("broadcaster\n");
     node->id = 0;
     node->type = BROADCASTER;
     broadcaster = node;
   } else if (line[0] == '%') {
     // flippen floppen
     char *token = strtok(line, "%");
-    printf("flipflop '%s' '%d' \n", token, str_to_node_id(token));
     node->id = str_to_node_id(token);
     node->type = FLIP_FLOP;
     node->state = OFF;
   } else if (line[0] == '&') {
     // conjunction
     char *token = strtok(line, "&");
-    printf("conjunction '%s' '%d' \n", token, str_to_node_id(token));
     node->id = str_to_node_id(token);
     node->type = CONJUNCTION;
 
+    node->input_nodes = calloc(32, sizeof(node_t));
     node->input_ids = calloc(32, sizeof(uint32_t));
     node->input_memory = calloc(32, sizeof(state_t));
     node->input_id_count = 0;
@@ -111,7 +110,6 @@ void lineHandler(char *line, int length) {
   do {
     // add id stuff
     node->output_ids[node->output_id_count++] = str_to_node_id(token);
-    printf("dst tok '%s' '%d' \n", token, str_to_node_id(token));
   } while ((token = strtok(NULL, ", ")) != NULL);
 
   nodes[nodeCount++] = node;
@@ -149,13 +147,14 @@ node_t *findNodeById(uint32_t id) {
   }
   return NULL;
 }
-// TODO this could do the mapping to output_node_pointers
+
 // also sets `rx` as a valid node
-void findConjunctionInputs() {
-  // printf("findConjunctionInputs\n");
+void mapNodeInputOutputs() {
+  // printf("mapNodeInputOutputs\n");
   for (int i = 0; i < nodeCount; i++) {
     node_t *node = nodes[i];
     // printf("Node: %d, %c\n", node->id, node->type);
+    node->output_nodes = calloc(node->output_id_count, sizeof(node_t));
 
     for (int j = 0; j < node->output_id_count; j++) {
       node_t *output_node = findNodeById(node->output_ids[j]);
@@ -166,13 +165,17 @@ void findConjunctionInputs() {
         rx->id = str_to_node_id("rx");
         rx->type = RX;
         rx->input_ids = calloc(1, sizeof(uint32_t));
-        rx->input_ids[rx->input_id_count++] = node->id;
+        rx->input_nodes = calloc(1, sizeof(node_t));
         nodes[nodeCount++] = rx;
-        continue;
+        output_node = rx;
       }
-      // printf("output node: %d, %c\n", output_node->id, output_node->type);
-      if (output_node->type == CONJUNCTION) {
-        output_node->input_ids[output_node->input_id_count++] = node->id;
+      node->output_nodes[j] = output_node;
+
+      if (output_node->type == CONJUNCTION || output_node->type == RX) {
+        // printf("output node: %d, %c\n", output_node->id, output_node->type);
+        output_node->input_ids[output_node->input_id_count] = node->id;
+        output_node->input_nodes[output_node->input_id_count] = node;
+        output_node->input_id_count++;
       }
     }
   }
@@ -184,11 +187,7 @@ void printNodes() {
     node_t *node = nodes[i];
     printf("Node: %d, %c\n", node->id, node->type);
     for (int j = 0; j < node->output_id_count; j++) {
-      node_t *output_node = findNodeById(node->output_ids[j]);
-      if (output_node == NULL) {
-        printf("rx node %d [j: %d]\n", node->output_ids[j], j);
-        continue;
-      }
+      node_t *output_node = node->output_nodes[j];
       printf("\toutput: %d, %c\n", output_node->id, output_node->type);
     }
   }
@@ -210,9 +209,6 @@ bool isInputNode(node_t *node) {
   }
   return false;
 }
-
-int low_pulses = 0;
-int high_pulses = 0;
 
 void pushButton() {
   queue_t *queue = q_create();
@@ -236,7 +232,7 @@ void pushButton() {
       // low pulse to all output nodes
       // printf("broadcasting\n");
       for (int j = 0; j < node->output_id_count; j++) {
-        node_t *output_node = findNodeById(node->output_ids[j]);
+        node_t *output_node = node->output_nodes[j];
         // printf("\toutput: %d, %c\n", output_node->id, output_node->type);
         q_action(queue, node, output_node, LOW);
       }
@@ -254,7 +250,7 @@ void pushButton() {
       node->state = !node->state;
       //  emit pulse as per new state - ON=HIGH OFF=LOW
       for (int j = 0; j < node->output_id_count; j++) {
-        node_t *output_node = findNodeById(node->output_ids[j]);
+        node_t *output_node = node->output_nodes[j];
         // printf("\toutput: %d, %c\n", output_node->id, output_node->type);
         q_action(queue, node, output_node, node->state == ON ? HIGH : LOW);
       }
@@ -296,7 +292,7 @@ void pushButton() {
       }
 
       for (int j = 0; j < node->output_id_count; j++) {
-        node_t *output_node = findNodeById(node->output_ids[j]);
+        node_t *output_node = node->output_nodes[j];
         // printf("\toutput: %d, %c --> %d\n", output_node->id,
         // output_node->type, all_high ? LOW : HIGH);
         q_action(queue, node, output_node, all_high ? LOW : HIGH);
@@ -312,11 +308,11 @@ int main() {
   init();
   readInputFile(__FILE__, lineHandler, fileHandler);
 
-  findConjunctionInputs();
+  mapNodeInputOutputs();
 
   // printNodes();
 
-  rx_input = findNodeById(rx->input_ids[0]);
+  rx_input = rx->input_nodes[0];
 
   // TODO definitely a "better" way, since this may not cover all inputs
   for (; button_presses < 5000; button_presses++) {
@@ -325,7 +321,7 @@ int main() {
 
   unsigned long long part_two = 1;
   for (int i = 0; i < rx_input->input_id_count; i++) {
-    node_t *rx_input_input = findNodeById(rx_input->input_ids[i]);
+    node_t *rx_input_input = rx_input->input_nodes[i];
     // printf("rx input input: %d, %c == %d\n", rx_input_input->id,
     // rx_input_input->type, rx_input_input->pulsed_high_at);
     part_two *= rx_input_input->pulsed_high_at;
@@ -343,7 +339,7 @@ int main() {
   // NO DATA
 #else
   printf("Part two: %llu\n", part_two);
-  assert(part_two == 244151741342687);
+  assert(part_two == 244151741342687llu);
 #endif
   exit(EXIT_SUCCESS);
 }

@@ -14,12 +14,13 @@ typedef enum state_t { ON = 1, OFF = 0 } state_t;
 typedef enum type_t {
   BROADCASTER = 'B',
   FLIP_FLOP = '%',
-  CONJUNCTION = '&'
+  CONJUNCTION = '&',
+  RX = 'R'
 } type_t;
 
 typedef struct node_t {
   uint32_t id; // requires modifying example `inv` => `in`
-  type_t type; // %, &, B
+  type_t type; // %, &, B, R
   state_t state;
 
   uint32_t *input_ids;
@@ -40,6 +41,7 @@ typedef struct action_t {
 node_t **nodes;
 int nodeCount = 0;
 node_t *broadcaster;
+node_t *rx;
 
 // TODO lib file!
 char *split(char *str, const char *delim) {
@@ -129,7 +131,6 @@ void lineHandler(char *line, int length) {
 //
 // button
 //  - send LOW pulse to broadcaster module
-
  */
 
 node_t *findNodeById(uint32_t id) {
@@ -143,6 +144,7 @@ node_t *findNodeById(uint32_t id) {
   return NULL;
 }
 // TODO this could do the mapping to output_node_pointers
+// also sets `rx` as a valid node
 void findConjunctionInputs() {
   printf("findConjunctionInputs\n");
   for (int i = 0; i < nodeCount; i++) {
@@ -153,6 +155,13 @@ void findConjunctionInputs() {
       node_t *output_node = findNodeById(node->output_ids[j]);
       if (output_node == NULL) {
         printf("rx node %d [j: %d]\n", node->output_ids[j], j);
+
+        rx = calloc(1, sizeof(node_t));
+        rx->id = str_to_node_id("rx");
+        rx->type = RX;
+        rx->input_ids = calloc(1, sizeof(uint32_t));
+        rx->input_ids[rx->input_id_count++] = node->id;
+        nodes[nodeCount++] = rx;
         continue;
       }
       printf("output node: %d, %c\n", output_node->id, output_node->type);
@@ -190,12 +199,10 @@ void q_action(queue_t *queue, node_t *input, node_t *output, pulse_t pulse) {
 int low_pulses = 0;
 int high_pulses = 0;
 
-// returns whether or not rx module would have received a LOW pulse
-bool pushButton() {
+void pushButton() {
   queue_t *queue = q_create();
 
   q_action(queue, NULL, broadcaster, LOW); // input button press
-  bool pulsed_rx_low = false;
 
   while (!q_empty(queue)) {
     action_t *action = q_dequeue(queue);
@@ -254,7 +261,7 @@ bool pushButton() {
       //                              - otherwise HIGH
       bool all_high = true;
       for (int j = 0; j < node->input_id_count; j++) {
-        if (node->input_memory[j] == LOW) {
+        if (node->input_memory[j] == OFF) {
           all_high = false;
           break;
         }
@@ -268,7 +275,6 @@ bool pushButton() {
 
           if (all_high) {
             low_pulses++;
-            pulsed_rx_low = true;
           } else {
             high_pulses++;
           }
@@ -282,7 +288,6 @@ bool pushButton() {
     free(action);
   }
   q_destroy(queue);
-  return pulsed_rx_low;
 }
 
 int main() {
@@ -314,15 +319,15 @@ int main() {
   // assert(420 == 69);
 #else
 // TODO free some memory boi
-  // continue until pulsed_rx_low == true
-  // bool pulsed_rx_low = false;
-  // while (!pulsed_rx_low) {
-  //   pulsed_rx_low = pushButton();
-  //   button_presses++;
-  // }
-  //
-  // printf("Part two: %d\n", button_presses);
-  // assert(420 == 69);
+// continue until pulsed_rx_low == true
+// bool pulsed_rx_low = false;
+// while (!pulsed_rx_low) {
+//   pulsed_rx_low = pushButton();
+//   button_presses++;
+// }
+//
+// printf("Part two: %d\n", button_presses);
+// assert(420 == 69);
 #endif
   exit(EXIT_SUCCESS);
 }

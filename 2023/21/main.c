@@ -16,6 +16,7 @@
 // coords: translated to map for wall detect ect
 //
 // translate fn -> mod to wrap to map size
+// mod_coord starts off but i couldnt figure it out :c
 //
 #ifdef TEST_MODE
 #define MAX_STEPS 6
@@ -91,6 +92,18 @@ void add_point(pqueue_t *queue, int y, int x, int s) {
   pq_enqueue(queue, new_point, s);
 }
 
+int mod_coord(int coord) {
+  return coord;
+  int range_max = grid_size;
+  int id = abs(coord) % (grid_size);
+
+  if (coord >= 0) {
+    return id;
+  } else {
+    return range_max - id;
+  }
+}
+
 // or maybe DFS...i dont know!
 int BFS(int start_y, int start_x, int max_steps) {
   printf("start (%d, %d) max %d\n", start_y, start_x, max_steps);
@@ -109,8 +122,8 @@ int BFS(int start_y, int start_x, int max_steps) {
 
   while (!pq_empty(queue)) {
     point_t *point = pq_dequeue(queue);
-    int y = point->y;
-    int x = point->x;
+    int y = mod_coord(point->y);
+    int x = mod_coord(point->x);
     int s = point->s;
 
     // stop if we hit the edge of the grid
@@ -149,7 +162,7 @@ int BFS(int start_y, int start_x, int max_steps) {
     int dY[] = {-1, 1, 0, 0};
     int dX[] = {0, 0, 1, -1};
     for (int i = 0; i < 4; i++) {
-      add_point(queue, y + dY[i], x + dX[i], s + 1);
+      add_point(queue, point->y + dY[i], point->x + dX[i], s + 1);
     }
     free(point);
   }
@@ -191,25 +204,40 @@ int main() {
 #else
   assert(part_one == 3764);
 #endif
-  // I'm not gunna lie here
-  // I'm just throwing stuff I don't understand from reddit together
-  // Maths is not my strong suit, this one makes me sad
-  // something something quadratic polynomial
-  /* TODO this could definitely do it all in one go, and just spit out
-   * the counts at the intervals required, i.e. MAX_STEPS, input etc
-   */
-  // BFS(height / 2, width / 2, 7);
-  // printf("7 steps = %d\n", countAndResetEndPositions());
-  // BFS(height / 2, width / 2, 8);
-  // printf("8 steps = %d\n", countAndResetEndPositions());
-  // BFS(height / 2, width / 2, 25);
-  // printf("25 steps = %d\n", countAndResetEndPositions());
-  // BFS(height / 2, width / 2, 42);
-  // printf("42 steps = %d\n", countAndResetEndPositions());
-  // BFS(height / 2, width / 2, 59);
-  // printf("59 steps = %d\n", countAndResetEndPositions());
-  // BFS(height / 2, width / 2, 100);
-  // printf("59 steps = %d\n", countAndResetEndPositions());
+// I'm not gunna lie here
+// I'm just throwing stuff I don't understand from reddit together
+// Maths is not my strong suit, this one makes me sad
+// something something quadratic polynomial
+/* TODO this could definitely do it all in one go, and just spit out
+ * the counts at the intervals required, i.e. MAX_STEPS, input etc
+ */
+#ifdef TEST_MODE
+  // TEST CASES, SAMPLE INPUT ONLY //
+  BFS(height / 2, width / 2, 7);
+  int out1 = countAndResetEndPositions();
+  printf("7 steps = %d\n", out1);
+  assert(out1 == 52);
+  BFS(height / 2, width / 2, 8);
+  int out2 = countAndResetEndPositions();
+  printf("8 steps = %d\n", out2);
+  assert(out2 == 68);
+  BFS(height / 2, width / 2, 25);
+  int out3 = countAndResetEndPositions();
+  printf("25 steps = %d\n", out3);
+  assert(out3 == 576);
+  BFS(height / 2, width / 2, 42);
+  int out4 = countAndResetEndPositions();
+  printf("42 steps = %d\n", out4);
+  assert(out4 == 1576);
+  BFS(height / 2, width / 2, 59);
+  int out5 = countAndResetEndPositions();
+  printf("59 steps = %d\n", out5);
+  assert(out5 == 3068);
+  BFS(height / 2, width / 2, 100);
+  int out6 = countAndResetEndPositions();
+  printf("100 steps = %d\n", out6);
+  assert(out6 == 8702);
+#endif
 
   int half_grid_size = grid_size / 2;
   BFS(height / 2, width / 2, half_grid_size);

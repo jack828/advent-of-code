@@ -265,6 +265,9 @@ int main() {
 #ifdef TEST_MODE
   // modified input from
   // https://old.reddit.com/r/adventofcode/comments/18o1071/2023_day_21_a_better_example_input_mild_part_2/
+  // and help from https://github.com/derailed-dash/Advent-of-Code/blob/master/src/AoC_2023/Dazbo's_Advent_of_Code_2023.ipynb
+  // and also https://www.youtube.com/watch?v=99Mjs1i0JxU&lc=UgxwS0greNfsrFXYPA14AaABAg.9ydjxdKIlaC9ydpDNgSwyb
+  // many tanks!
   assert(part_two == 1185525742508llu);
 #else
   assert(part_two == 622926941971282);

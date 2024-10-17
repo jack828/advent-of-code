@@ -8,6 +8,7 @@
 // #define TEST_MODE
 #include "../../lib/pqueue.h"
 #include "../utils.h"
+#define HASHMAP_SIZE (65535000)
 
 // Future me, if you ever come back to this, do what this vid has to optimise
 // https://youtu.be/99Mjs1i0JxU?t=610
@@ -29,6 +30,7 @@ char **end_positions;
 int height = -1;
 int width = 0;
 int grid_size;
+char hm[HASHMAP_SIZE] = {0};
 
 typedef struct {
   int y;
@@ -53,7 +55,6 @@ void lineHandler(char *line, int length) {
   }
 
   grid[++height] = calloc(width, sizeof(char));
-  end_positions[height] = calloc(width, sizeof(char));
   for (int i = 0; i < grid_multiplier; i++) {
     strncat(grid[height], line, length);
   }
@@ -73,6 +74,13 @@ void print_grid(char **grid_to_print) {
     }
     printf("\n");
   }
+}
+
+uint64_t hash_point(point_t *point) {
+  uint64_t hash = 0;
+  hash |= (uint64_t)(point->y);
+  hash |= (uint64_t)(point->x) << 32;
+  return hash % HASHMAP_SIZE;
 }
 
 void add_point(pqueue_t *queue, int y, int x, int s) {
@@ -116,17 +124,21 @@ int BFS(int start_y, int start_x, int max_steps) {
       continue;
     }
 
+    unsigned long hash_key = hash_point(point);
+
+    // as in, we can reach here, valid end, etc
+    int is_odd_or_even_steps = s % 2 == odd_or_even_steps;
     // stop if we can visit this already
-    if (end_positions[y][x]) {
-      if (end_positions[y][x] % 2 == odd_or_even_steps &&
-          s % 2 == odd_or_even_steps) {
+
+    if (hm[hash_key]) {
+      if (is_odd_or_even_steps) {
         free(point);
         continue;
       }
     }
     // if steps is odd_or_even_steps, this is a valid end point
-    if (s % 2 == odd_or_even_steps) {
-      end_positions[y][x] = s;
+    if (is_odd_or_even_steps) {
+      hm[hash_key] = s;
     }
 
     if (s == max_steps) {
@@ -149,17 +161,12 @@ int BFS(int start_y, int start_x, int max_steps) {
 
 int countAndResetEndPositions() {
   int count = 0;
-  for (int y = 0; y <= height; y++) {
-    for (int x = 0; x <= width; x++) {
-      char c = end_positions[y][x];
-      if (c != 0) {
-        count++;
-        // reset for part two
-        end_positions[y][x] = 0;
-      }
+  for (int i = 0; i < HASHMAP_SIZE; i++) {
+    if (hm[i]) {
+      count++;
+      hm[i] = 0;
     }
   }
-
   return count;
 }
 
@@ -176,9 +183,6 @@ int main() {
   printf("centre: %c\n", grid[height / 2][width / 2]);
   printf("grid size: %d\n", grid_size);
   BFS(height / 2, width / 2, MAX_STEPS);
-
-  // printf("\n end_positions \n");
-  // print_grid(end_positions);
 
   int part_one = countAndResetEndPositions();
   printf("Part one: %d\n", part_one);
@@ -204,13 +208,14 @@ int main() {
   // printf("42 steps = %d\n", countAndResetEndPositions());
   // BFS(height / 2, width / 2, 59);
   // printf("59 steps = %d\n", countAndResetEndPositions());
+  // BFS(height / 2, width / 2, 100);
+  // printf("59 steps = %d\n", countAndResetEndPositions());
 
   int half_grid_size = grid_size / 2;
   BFS(height / 2, width / 2, half_grid_size);
   int x_0 = countAndResetEndPositions();
   BFS(height / 2, width / 2, half_grid_size + grid_size);
   int x_1 = countAndResetEndPositions();
-  // BFS(height / 2, width / 2, half_grid_size + (grid_size * 2));
   BFS(height / 2, width / 2, half_grid_size + (grid_size * 2));
   int x_2 = countAndResetEndPositions();
   printf("x0,x1,x2 = %d,%d,%d\n", x_0, x_1, x_2);
@@ -234,11 +239,7 @@ int main() {
   // https://old.reddit.com/r/adventofcode/comments/18o1071/2023_day_21_a_better_example_input_mild_part_2/
   assert(part_two == 1185525742508llu);
 #else
-
-  assert(part_two > 608316709533664);
-  assert(part_two != 608322723538741);
-  assert(part_two < 640770143655864);
-  assert(part_two < 18446744073387349944llu);
+  assert(part_two == 622926941971282);
 #endif
   exit(EXIT_SUCCESS);
 }

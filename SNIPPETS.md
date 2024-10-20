@@ -129,6 +129,40 @@ int main() {
 }
 ```
 
+## 3D Array
+
+```c
+
+char ***grid;
+grid = calloc(x_max + 1, sizeof(char **));
+for (int x = 0; x <= x_max; x++) {
+  printf("x: %d\n", x);
+  grid[x] = calloc(y_max + 1, sizeof(char *));
+  for (int y = 0; y <= y_max; y++) {
+  printf("y: %d\n", y);
+    grid[x][y] = calloc(z_max + 1, sizeof(char));
+  }
+}
+
+// perspective?
+void printGrid() {
+  for (int x = 0; x <= x_max; x++) {
+    printf("x: %d\n", x);
+    for (int y = 0; y <= y_max; y++) {
+      for (int z = 0; z <= z_max; z++) {
+        if (grid[x][y][z]) {
+          printf("%d", grid[x][y][z]);
+        } else {
+          printf(".");
+        }
+      }
+      printf("\n");
+    }
+  }
+  printf("\n");
+}
+```
+
 ## strtok_r while loop
 
 ```c

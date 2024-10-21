@@ -13,4 +13,5 @@ CompileFlags:
     -std=gnu17,
     -Wunused-parameter,
     -Wno-error=unused-parameter,
+    -Wno-strict-prototypes,
   ]

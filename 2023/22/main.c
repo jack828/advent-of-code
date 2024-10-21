@@ -2,8 +2,10 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <sys/types.h>
-#define TEST_MODE
+// #define TEST_MODE
+#include "../../lib/queue.h"
 #include "../utils.h"
 
 typedef enum axis_t { X = 0, Y = 1, Z = 2 } axis_t;
@@ -82,15 +84,20 @@ void lineHandler(char *line, int length) {
   block->supported_by_count = 0;
   blocks[block_count++] = block;
 
-  printf(">>> %d,%d,%d~%d,%d,%d (%d)\n\n", x_s, y_s, z_s, x_e, y_e, z_e,
-         block->axis);
+  // printf(">>> %d,%d,%d~%d,%d,%d (%d)\n\n", x_s, y_s, z_s, x_e, y_e, z_e,
+  // block->axis);
   x_max = max(x_max, max(x_s, x_e));
   y_max = max(y_max, max(y_s, y_e));
   z_max = max(z_max, max(z_s, z_e));
 }
 
 void printBlock(char *tag, block_t *block) {
-  printf("%s '%c' (%d,%d,%d) -> (%d,%d,%d) [%d] ", tag, block->letter,
+#ifdef TEST_MODE
+#define LETTER "%c"
+#else
+#define LETTER "%d"
+#endif
+  printf("%s '" LETTER "' (%d,%d,%d) -> (%d,%d,%d) [%d] ", tag, block->letter,
          block->x_s, block->y_s, block->z_s, block->x_e, block->y_e, block->z_e,
          block->length + 1);
   switch (block->axis) {
@@ -108,14 +115,14 @@ void printBlock(char *tag, block_t *block) {
     printf("\n\tSupports:     ");
     for (int i = 0; i < block->support_count; i++) {
       block_t *support_block = block->supports[i];
-      printf("%c,", support_block->letter);
+      printf(LETTER ",", support_block->letter);
     }
   }
   if (block->supported_by_count) {
     printf("\n\tSupported by: ");
     for (int i = 0; i < block->supported_by_count; i++) {
       block_t *supported_by_block = block->supported_by[i];
-      printf("%c,", supported_by_block->letter);
+      printf(LETTER ",", supported_by_block->letter);
     }
   }
   printf("\n\n");
@@ -154,9 +161,8 @@ block_t *blockIntersects(int x, int y, int z) {
   return NULL;
 }
 
-bool settleBlocks(bool quit_if_moves) {
+void settleBlocks() {
   // for each z axis,
-  bool has_moves = false;
   for (int z = 1; z <= z_max; z++) {
     for (int x = 0; x <= x_max; x++) {
       for (int y = 0; y <= y_max; y++) {
@@ -237,31 +243,18 @@ bool settleBlocks(bool quit_if_moves) {
 
           // we cannot move any more
           if (can_move_down == false) {
-            // printf("settled\n");
             block->settled = true;
             break;
           } else {
-            if (quit_if_moves) {
-              // printBlock("moves", block);
-              return true;
-            } else {
-              // update position and keep going
-              // printf("moving!\n");
-              // printBlock("moved b", block);
-              block->z_s -= 1;
-              block->z_e -= 1;
-              // printBlock("moved a", block);
-              has_moves = true;
-            }
+            // update position and keep going
+            block->z_s -= 1;
+            block->z_e -= 1;
           }
           new_z--;
-          // and set settled = true
-          // break;
-        } // while (true);
+        }
       }
     }
   }
-  return has_moves;
 }
 
 // block A supports block B, without it, B would fall
@@ -301,7 +294,7 @@ void calculateSupportingBlocks() {
   for (int i = 0; i < block_count; i++) {
     block_t *block = blocks[i];
 
-    printBlock("supports", block);
+    // printBlock("supports", block);
     int new_z = block->z_s + 1;
     switch (block->axis) {
     case X: {
@@ -310,8 +303,8 @@ void calculateSupportingBlocks() {
         block_t *touches_block =
             blockIntersects(block->x_s + dX, block->y_s, new_z);
         if (touches_block != NULL) {
-          printf("touches (%d,%d,%d) [%c]\n", block->x_s + dX, block->y_s,
-                 new_z, touches_block->letter);
+          // printf("touches (%d,%d,%d) [%c]\n", block->x_s + dX, block->y_s,
+          // new_z, touches_block->letter);
           addBlockSupport(block, touches_block);
           addBlockSupportedBy(touches_block, block);
         }
@@ -324,8 +317,8 @@ void calculateSupportingBlocks() {
         block_t *touches_block =
             blockIntersects(block->x_s, block->y_s + dY, new_z);
         if (touches_block != NULL) {
-          printf("touches (%d,%d,%d) [%c]\n", block->x_s, block->y_s + dY,
-                 new_z, touches_block->letter);
+          // printf("touches (%d,%d,%d) [%c]\n", block->x_s, block->y_s + dY,
+          // new_z, touches_block->letter);
           addBlockSupport(block, touches_block);
           addBlockSupportedBy(touches_block, block);
         }
@@ -337,8 +330,8 @@ void calculateSupportingBlocks() {
       new_z = block->z_e + 1;
       block_t *touches_block = blockIntersects(block->x_s, block->y_s, new_z);
       if (touches_block != NULL) {
-        printf("touches (%d,%d,%d) [%c]\n", block->x_s, block->y_s, new_z,
-               touches_block->letter);
+        // printf("touches (%d,%d,%d) [%c]\n", block->x_s, block->y_s, new_z,
+        // touches_block->letter);
         addBlockSupport(block, touches_block);
         addBlockSupportedBy(touches_block, block);
       }
@@ -367,13 +360,6 @@ void printBlockTower() {
   printf("---   ---   ---\n");
 }
 
-void resetSettled() {
-  for (int i = 0; i < block_count; i++) {
-    block_t *block = blocks[i];
-    block->settled = false;
-  }
-}
-
 int compare(const void *left, const void *right) {
   block_t *left_block = *(block_t **)left;
   block_t *right_block = *(block_t **)right;
@@ -385,46 +371,83 @@ int compare(const void *left, const void *right) {
   }
 }
 
+// DFS or BFS, whatevs
+// BFS for each brick - keep a vector of "fallen" brick indexes, then for
+// each supported brick, enqueue it if all of its "supported_by" bricks have
+// fallen
+int countDependantBlocks(block_t *startBlock) {
+  // so we can index by `block->letter`
+  char fallen_indexes[block_count + 'a'];
+  memset(fallen_indexes, 0, (block_count + 'a') * sizeof(char));
+
+  queue_t *queue = q_create();
+
+  q_enqueue(queue, startBlock);
+
+  while (!q_empty(queue)) {
+    block_t *block = q_dequeue(queue);
+    // this block has fallen
+    fallen_indexes[block->letter] = 1;
+    for (int i = 0; i < block->support_count; i++) {
+      block_t *support_block = block->supports[i];
+
+      bool add = true;
+      for (int j = 0; j < support_block->supported_by_count; j++) {
+        block_t *supported_block = support_block->supported_by[j];
+        if (fallen_indexes[supported_block->letter] == 0) {
+          // not eligible
+          add = false;
+          continue;
+        }
+      }
+      if (add) {
+        q_enqueue(queue, support_block);
+      }
+    }
+  }
+  q_destroy(queue);
+
+  // -1, because the first block doesn't fall,
+  // it disintegrates
+  int fall_count = -1;
+  for (int i = 0; i < block_count + 'a'; i++) {
+    if (fallen_indexes[i]) {
+      fall_count++;
+    }
+  }
+  return fall_count;
+}
+
 int main() {
   init();
   readInputFile(__FILE__, lineHandler, fileHandler);
 
   // input needs to be sorted in ascending Z index
   // so the lowest one is dropped first
-  printBlock("before sort", blocks[0]);
   qsort(blocks, block_count, sizeof(block_t *), compare);
 
-  printBlock(" after sort", blocks[0]);
-  /* grid = calloc(x_max + 1, sizeof(char **));
-  for (int x = 0; x <= x_max; x++) {
-    printf("x: %d\n", x);
-    grid[x] = calloc(y_max + 1, sizeof(char *));
-    for (int y = 0; y <= y_max; y++) {
-      printf("y: %d\n", y);
-      grid[x][y] = calloc(z_max + 1, sizeof(char));
-    }
-  } */
-
+  // tests
   // assert(pointInBlock(1, 0, 1, blocks[0]) == true);
   // assert(pointInBlock(1, 1, 1, blocks[0]) == true);
   // assert(pointInBlock(1, 2, 1, blocks[0]) == true);
   // assert(pointInBlock(1, 2, 0, blocks[0]) == false);
 
-  printf("max %d,%d,%d\n\n", x_max, y_max, z_max);
+  // printf("max %d,%d,%d\n\n", x_max, y_max, z_max);
 
-  settleBlocks(false);
-  printBlockTower();
+  settleBlocks();
+  // printBlockTower();
   calculateSupportingBlocks();
 
-  printf("\n\n---\n\n");
+
+  block_t **unsafe_blocks = calloc(block_count, sizeof(block_t *));
+  int unsafe_block_count = 0;
   int can_disintegrate = 0;
   // can destroy a block if
   // the blocks it supports have > 1 supported_by_count
-  // for (int i = 0; i < 1; i++) {
   for (int i = 0; i < block_count; i++) {
     block_t *block = blocks[i];
 
-    printBlock("disintegrate", block);
+    // printBlock("disintegrate", block);
 
     bool safe = true;
     for (int j = 0; j < block->support_count; j++) {
@@ -433,27 +456,12 @@ int main() {
         safe = false;
       }
     }
-    printf("safe: %c\n", safe ? 'Y' : 'N');
+    // printf("safe: %c\n", safe ? 'Y' : 'N');
     if (safe) {
       can_disintegrate++;
+    } else {
+      unsafe_blocks[unsafe_block_count++] = block;
     }
-    // "delete" block ref in blocks[]
-    // run settleBlocks
-
-    // resetSettled();
-    // blocks[i] = NULL;
-    // // printBlock("can destroy?", block);
-    //
-    // bool quit_if_moves = true;
-    // bool has_changes = settleBlocks(quit_if_moves);
-    // if (!has_changes) {
-    //   can_disintegrate++;
-    //   // printBlock("\tdestroy", block);
-    // } else {
-    //   // printBlock("\t  NO", block);
-    // }
-    //
-    // blocks[i] = block;
   }
   printf("Part one: %d\n", can_disintegrate);
 #ifdef TEST_MODE
@@ -462,11 +470,18 @@ int main() {
   assert(can_disintegrate == 421);
 #endif
 
-  printf("Part two: %d\n", 420);
+  // printf("unsafe: %d\n", unsafe_block_count);
+  int fall_sum = 0;
+  for (int i = 0; i < unsafe_block_count; i++) {
+    block_t *block = unsafe_blocks[i];
+    // printBlock("unsafe", block);
+    fall_sum += countDependantBlocks(block);
+  }
+  printf("Part two: %d\n", fall_sum);
 #ifdef TEST_MODE
-  assert(420 == 69);
+  assert(fall_sum == 7);
 #else
-  assert(420 == 69);
+  assert(fall_sum == 39247);
 #endif
   exit(EXIT_SUCCESS);
 }

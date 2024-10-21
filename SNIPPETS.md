@@ -201,6 +201,7 @@ void printGrid() {
  - [2022 Day 24](2022/24/main.c)
  - [2023 Day 10](2023/10/main.c)
  - [2023 Day 21](2023/21/main.c)
+ - [2023 Day 22](2023/22/main.c)
 
 ## Shoelace Formula
 

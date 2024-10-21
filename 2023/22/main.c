@@ -3,13 +3,13 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/types.h>
-// #define TEST_MODE
+#define TEST_MODE
 #include "../utils.h"
 
 typedef enum axis_t { X = 0, Y = 1, Z = 2 } axis_t;
 
 typedef struct block_t {
-  char letter;
+  int letter;
   // start
   int x_s;
   int y_s;
@@ -22,6 +22,14 @@ typedef struct block_t {
   // which dir the block is facing
   axis_t axis;
   int length;
+
+  // blocks that this block supports
+  struct block_t **supports;
+  int support_count;
+
+  // blocks that are supported by this one
+  struct block_t **supported_by;
+  int supported_by_count;
 } block_t;
 
 block_t **blocks;
@@ -64,6 +72,14 @@ void lineHandler(char *line, int length) {
     block->length = z_e - z_s;
     break;
   }
+  block->supports =
+      calloc(block->length + 1, // can support maximum one per point
+             sizeof(block_t *));
+  block->support_count = 0;
+  block->supported_by =
+      calloc(block->length + 1, // can support maximum one per point
+             sizeof(block_t *));
+  block->supported_by_count = 0;
   blocks[block_count++] = block;
 
   printf(">>> %d,%d,%d~%d,%d,%d (%d)\n\n", x_s, y_s, z_s, x_e, y_e, z_e,
@@ -87,6 +103,20 @@ void printBlock(char *tag, block_t *block) {
   case Z:
     printf("Z");
     break;
+  }
+  if (block->support_count) {
+    printf("\n\tSupports:     ");
+    for (int i = 0; i < block->support_count; i++) {
+      block_t *support_block = block->supports[i];
+      printf("%c,", support_block->letter);
+    }
+  }
+  if (block->supported_by_count) {
+    printf("\n\tSupported by: ");
+    for (int i = 0; i < block->supported_by_count; i++) {
+      block_t *supported_by_block = block->supported_by[i];
+      printf("%c,", supported_by_block->letter);
+    }
   }
   printf("\n\n");
 }
@@ -234,6 +264,89 @@ bool settleBlocks(bool quit_if_moves) {
   return has_moves;
 }
 
+// block A supports block B, without it, B would fall
+void addBlockSupport(block_t *a, block_t *b) {
+  // first check it is not already included
+  for (int i = 0; i < a->support_count; i++) {
+    block_t *block = a->supports[i];
+    if (block->letter == b->letter) {
+      // already know about this one!
+      return;
+    }
+  }
+  // add it
+  a->supports[a->support_count++] = b;
+}
+
+// block B is supported by block A, without it, B would fall
+void addBlockSupportedBy(block_t *a, block_t *b) {
+  // first check it is not already included
+  for (int i = 0; i < a->supported_by_count; i++) {
+    block_t *block = a->supported_by[i];
+    if (block->letter == b->letter) {
+      // already know about this one!
+      return;
+    }
+  }
+  // add it
+  a->supported_by[a->supported_by_count++] = b;
+}
+
+void calculateSupportingBlocks() {
+  // for each block
+  // check each point above it
+  // if it is a block
+  // add to supports[]
+  // if not already present
+  for (int i = 0; i < block_count; i++) {
+    block_t *block = blocks[i];
+
+    printBlock("supports", block);
+    int new_z = block->z_s + 1;
+    switch (block->axis) {
+    case X: {
+      // look below each point on the x axis of the block
+      for (int dX = 0; dX <= block->length; dX++) {
+        block_t *touches_block =
+            blockIntersects(block->x_s + dX, block->y_s, new_z);
+        if (touches_block != NULL) {
+          printf("touches (%d,%d,%d) [%c]\n", block->x_s + dX, block->y_s,
+                 new_z, touches_block->letter);
+          addBlockSupport(block, touches_block);
+          addBlockSupportedBy(touches_block, block);
+        }
+      }
+      break;
+    }
+    case Y: {
+      // look below each point on the x axis of the block
+      for (int dY = 0; dY <= block->length; dY++) {
+        block_t *touches_block =
+            blockIntersects(block->x_s, block->y_s + dY, new_z);
+        if (touches_block != NULL) {
+          printf("touches (%d,%d,%d) [%c]\n", block->x_s, block->y_s + dY,
+                 new_z, touches_block->letter);
+          addBlockSupport(block, touches_block);
+          addBlockSupportedBy(touches_block, block);
+        }
+      }
+      break;
+    }
+    case Z: {
+      // look below the start point of the block
+      new_z = block->z_e + 1;
+      block_t *touches_block = blockIntersects(block->x_s, block->y_s, new_z);
+      if (touches_block != NULL) {
+        printf("touches (%d,%d,%d) [%c]\n", block->x_s, block->y_s, new_z,
+               touches_block->letter);
+        addBlockSupport(block, touches_block);
+        addBlockSupportedBy(touches_block, block);
+      }
+    } break;
+    }
+  }
+}
+
 void printBlockTower() {
   for (int z = z_max; z > 0; z--) {
     // printf("z: %d\n", z);
@@ -299,33 +412,48 @@ int main() {
 
   printf("max %d,%d,%d\n\n", x_max, y_max, z_max);
 
-  // while(settleBlocks(false));
   settleBlocks(false);
-
   printBlockTower();
+  calculateSupportingBlocks();
 
+  printf("\n\n---\n\n");
   int can_disintegrate = 0;
+  // can destroy a block if
+  // the blocks it supports have > 1 supported_by_count
   // for (int i = 0; i < 1; i++) {
   for (int i = 0; i < block_count; i++) {
     block_t *block = blocks[i];
 
+    printBlock("disintegrate", block);
+
+    bool safe = true;
+    for (int j = 0; j < block->support_count; j++) {
+      block_t *supported_block = block->supports[j];
+      if (supported_block->supported_by_count == 1) {
+        safe = false;
+      }
+    }
+    printf("safe: %c\n", safe ? 'Y' : 'N');
+    if (safe) {
+      can_disintegrate++;
+    }
     // "delete" block ref in blocks[]
     // run settleBlocks
 
-    resetSettled();
-    blocks[i] = NULL;
-    printBlock("can destroy?", block);
-
-    bool quit_if_moves = true;
-    bool has_changes = settleBlocks(quit_if_moves);
-    if (!has_changes) {
-      can_disintegrate++;
-      printBlock("\tdestroy", block);
-    } else {
-      printBlock("\t  NO", block);
-    }
-
-    blocks[i] = block;
+    // resetSettled();
+    // blocks[i] = NULL;
+    // // printBlock("can destroy?", block);
+    //
+    // bool quit_if_moves = true;
+    // bool has_changes = settleBlocks(quit_if_moves);
+    // if (!has_changes) {
+    //   can_disintegrate++;
+    //   // printBlock("\tdestroy", block);
+    // } else {
+    //   // printBlock("\t  NO", block);
+    // }
+    //
+    // blocks[i] = block;
   }
   printf("Part one: %d\n", can_disintegrate);
 #ifdef TEST_MODE

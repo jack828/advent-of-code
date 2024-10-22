@@ -74,6 +74,20 @@ void destroy_point(point_t *point) {
   free(point);
 }
 
+bool isInvalidPoint(int y, int x, char *hashmap) {
+  bool invalid =
+      y < 0 || x < 0 || y >= height || x >= width || map[y][x] == '#';
+  if (invalid) {
+    return invalid;
+  }
+
+  uint64_t key = 0;
+  key |= (uint64_t)(y);
+  key |= (uint64_t)(x) << 8;
+
+  return hashmap[key] == 1;
+}
+
 // or bfs
 int DFS(int start_x, int start_y, int end_y, int end_x) {
   printf("DFS: (%d,%d) -> (%d,%d)\n", start_x, start_y, end_y, end_x);
@@ -84,17 +98,13 @@ int DFS(int start_x, int start_y, int end_y, int end_x) {
   point_t *new_point = malloc(sizeof(point_t));
   new_point->y = start_y;
   new_point->x = start_x;
-  new_point->s = 0;
+  new_point->s = 1;
   new_point->hashmap = calloc(HASHMAP_SIZE, sizeof(char));
   pq_enqueue(queue, new_point, new_point->s);
-  // add_point(queue, start_y, start_x, 1);
 
   while (!pq_empty(queue)) {
     point_t *point = pq_dequeue(queue);
 
-    // TODO make sure the y >= height || x >= width
-    // are correctly within the bounds!
-    // TODO does this being here fix that?
     if (point->y == end_y && point->x == end_x) {
       // end reached!
       // printf("END: (%d,%d) -> [%d]\n", point->x, point->y, point->s);
@@ -102,56 +112,37 @@ int DFS(int start_x, int start_y, int end_y, int end_x) {
       // free'd later
       continue;
     }
-    if (point->y < 0 || point->x < 0 || point->y >= height ||
-        point->x >= width) {
-      // oob
-      // printf("oob: (%d,%d) -> [%d]\n", point->x, point->y, point->s);
-      destroy_point(point);
-      continue;
-    }
-
-    if (map[point->y][point->x] == '#') {
-      // wall
-      // printf("wall: (%d,%d) -> [%d]\n", point->x, point->y, point->s);
-      destroy_point(point);
-      continue;
-    }
 
     uint64_t key = hash_point(point);
-
-    if (point->hashmap[key]) {
-      // seen
-      // printf("seen: (%d,%d) -> [%d]\n", point->x, point->y, point->s);
-      destroy_point(point);
-      continue;
-    }
 
     point->hashmap[key] = 1;
 
     // printf("point: (%d,%d) -> [%d]\n", point->x, point->y, point->s);
 
-    // N - y-1
-    // S - y+1
-    // W - x-1
-    // E - x+1
     char pos = map[point->y][point->x];
     // are we forced to make a move?
     if (pos == '>') {
-      add_point(queue, point->y, point->x + 1, point->s + 1, point->hashmap);
+      if (!isInvalidPoint(point->y, point->x + 1, point->hashmap)) {
+        add_point(queue, point->y, point->x + 1, point->s + 1, point->hashmap);
+      }
     } else if (pos == '<') {
-      add_point(queue, point->y, point->x - 1, point->s + 1, point->hashmap);
+      if (!isInvalidPoint(point->y, point->x - 1, point->hashmap)) {
+        add_point(queue, point->y, point->x - 1, point->s + 1, point->hashmap);
+      }
     } else if (pos == 'v') {
-      add_point(queue, point->y + 1, point->x, point->s + 1, point->hashmap);
-      // not present in input
-      // } else if (pos == '^') {
-      // add_point(queue, point->y, point->x - 1, point->s + 1);
+      if (!isInvalidPoint(point->y + 1, point->x, point->hashmap)) {
+        add_point(queue, point->y + 1, point->x, point->s + 1, point->hashmap);
+      }
     } else {
       // otherwise go everywhere, dequeue will handle walls etc
       int dY[] = {-1, 1, 0, 0};
       int dX[] = {0, 0, 1, -1};
       for (int i = 0; i < 4; i++) {
-        add_point(queue, point->y + dY[i], point->x + dX[i], point->s + 1,
-                  point->hashmap);
+        if (!isInvalidPoint(point->y + dY[i], point->x + dX[i],
+                            point->hashmap)) {
+          add_point(queue, point->y + dY[i], point->x + dX[i], point->s + 1,
+                    point->hashmap);
+        }
       }
     }
 
@@ -163,7 +154,7 @@ int DFS(int start_x, int start_y, int end_y, int end_x) {
   while (!pq_empty(output)) {
     point_t *point = pq_dequeue(output);
     // printf("output: %d\n", point->s);
-    max_steps = point->s;
+    max_steps = point->s + 1; // we skip a step to make it easier
     destroy_point(point);
   }
   pq_destroy(output);
@@ -175,10 +166,12 @@ int main() {
   init();
   readInputFile(__FILE__, lineHandler, fileHandler);
 
-  map[0][1] = 'S';
-  print_map();
+  map[0][1] = '#';
+  map[1][1] = 'S';
+  map[height - 2][width - 2] = 'E';
+  // print_map();
 
-  int max_steps = DFS(1, 1, height - 1, width - 1);
+  int max_steps = DFS(1, 1, height - 2, width - 2);
 
   printf("Part one: %d\n", max_steps);
 #ifdef TEST_MODE

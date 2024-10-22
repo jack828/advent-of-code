@@ -66,7 +66,7 @@ void add_point(pqueue_t *queue, int y, int x, int s, char *hashmap) {
   new_point->s = s;
   new_point->hashmap = calloc(HASHMAP_SIZE, sizeof(char));
   memcpy(new_point->hashmap, hashmap, HASHMAP_SIZE);
-  pq_enqueue(queue, new_point, s);
+  pq_enqueue(queue, new_point, -s);
 }
 
 void destroy_point(point_t *point) {

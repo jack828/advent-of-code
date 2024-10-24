@@ -75,7 +75,7 @@ void print_grid(char **grid_to_print) {
 char **map;
 int height = 0;
 int width = 0;
-int line_i= 0;
+int line_i = 0;
 
 void fileHandler(int lines) {
   printf("lines: %d\n", lines);
@@ -182,6 +182,8 @@ void printGrid() {
    - Not using `lib.h`
    - But does use djb2 hash algorithm
  - [2023 Day 17](2023/17/main.c)
+ - [2023 Day 23](2023/23/main.c)
+   - array based hashmap
 
 # Algorithms
 
@@ -202,6 +204,8 @@ void printGrid() {
  - [2023 Day 10](2023/10/main.c)
  - [2023 Day 21](2023/21/main.c)
  - [2023 Day 22](2023/22/main.c)
+ - [2023 Day 23](2023/23/main.c)
+    - Several copies, one creates acyclic digraph, and then find longest path.
 
 ## Shoelace Formula
 

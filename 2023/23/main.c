@@ -227,7 +227,7 @@ void dfsToBuildGraph(int start_x, int start_y, int end_y, int end_x) {
   point_t *start_point = malloc(sizeof(point_t));
   start_point->y = start_y;
   start_point->x = start_x;
-  start_point->s = 1;
+  start_point->s = 0;
   start_point->from_node = start_node;
 
   char *hashmap = calloc(HASHMAP_SIZE, sizeof(char));
@@ -247,6 +247,11 @@ void dfsToBuildGraph(int start_x, int start_y, int end_y, int end_x) {
       edge->dist = point->s;
       // add a new edge/node reference for the point->from_node
       src_node->edges[src_node->edge_count++] = edge;
+
+      edge_t *dst_edge = malloc(sizeof(edge_t));
+      dst_edge->node = src_node;
+      dst_edge->dist = point->s;
+      dst_node->edges[dst_node->edge_count++] = dst_edge;
       // printf("final edge\t[#%d] -> [#%d] = %d\n", src_node->index,
       //        dst_node->index, point->s);
       // printf("\t\t(%d,%d) -> (%d,%d)\n", src_node->y, src_node->x,
@@ -342,7 +347,7 @@ void dfsToBuildGraph(int start_x, int start_y, int end_y, int end_x) {
 
               edge_t *dst_edge = malloc(sizeof(edge_t));
               dst_edge->node = src_node;
-              dst_edge->dist = point->s;
+              dst_edge->dist = point->s + 1;
               dst_node->edges[dst_node->edge_count++] = dst_edge;
               // printf("side edge\t[#%d] -> [#%d] = %d\n", src_node->index,
               //        dst_node->index, src_edge->dist);
@@ -383,8 +388,8 @@ int dfsToGetLongestPath(node_t *start_node, node_t *end_node) {
     if (point->node->index == end_node->index) {
       // end reached!
 
-      if (point->s+1 > max_steps) {
-        printf("END: (%d) -> [%d]\n", point->node->index, point->s + 1);
+      if (point->s + 1 > max_steps) {
+        // printf("END: (%d) -> [%d]\n", point->node->index, point->s + 1);
         max_steps = point->s + 1;
       }
       // pq_enqueue(output, point, point->s);
@@ -448,28 +453,30 @@ int main() {
   // printMap();
 
   /* printf("\n\n---\n\n");
-  for (int j = 0; j < node_count; j++) {
-    node_t *node = nodes[j];
-    printf("\nnode [#%d](%d,%d) - %d edges\n", node->index, node->y, node->x,
-           node->edge_count);
-    for (int k = 0; k < node->edge_count; k++) {
-      edge_t *edge = node->edges[k];
-      printf("[#%d](%d,%d) = %d steps\n", edge->node->index, edge->node->y,
-             edge->node->x, edge->dist);
-    }
-  } */
+ for (int j = 0; j < node_count; j++) {
+   node_t *node = nodes[j];
+   printf("\nnode [#%d](%d,%d) - %d edges\n", node->index, node->y, node->x,
+          node->edge_count);
+   for (int k = 0; k < node->edge_count; k++) {
+     edge_t *edge = node->edges[k];
+     printf("[#%d](%d,%d) = %d steps\n", edge->node->index, edge->node->y,
+            edge->node->x, edge->dist);
+   }
+ } */
 
   // dfs 3 electric boogalee
-  int part_two = dfsToGetLongestPath(nodes[0], nodes[node_count - 1]);
+  // it is faster to start at second node and end at penultimate
+  // because these routes HAVE to be included anyway
+  int part_two = dfsToGetLongestPath(nodes[1], nodes[node_count - 2]) +
+                 nodes[0]->edges[0]->dist +
+                 nodes[node_count - 1]->edges[0]->dist;
+  // int part_two = dfsToGetLongestPath(nodes[0], nodes[node_count - 1]);
+
   printf("Part two: %d\n", part_two);
 #ifdef TEST_MODE
   assert(part_two == 154);
 #else
-  assert(part_two > 6553);
-  assert(part_two != 6869);
-  assert(part_two != 6870);
-  assert(part_two != 6903);
-  assert(part_two < 7000);
+  assert(part_two == 6874);
 #endif
   // I think this is the only one i actually bothered to properly free memory
   // cos who needs to do that when the program will close anyway amirite

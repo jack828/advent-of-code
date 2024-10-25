@@ -5,7 +5,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/types.h>
-#define TEST_MODE
+// #define TEST_MODE
 #include "../utils.h"
 
 #ifdef TEST_MODE
@@ -24,8 +24,8 @@ typedef struct hailstone_t {
   int dx;
   int dy;
   int dz;
-  double slope;
-  long double intercept;
+  double m;
+  long double b;
 } hailstone_t;
 
 hailstone_t **hailstones;
@@ -48,14 +48,15 @@ void lineHandler(char *line, int length) {
          &hailstone->z, &hailstone->dx, &hailstone->dy, &hailstone->dz);
 
   hailstone->index = hailstone_count;
-  hailstone->slope = ((double)hailstone->dy) / ((double)hailstone->dx);
-  hailstone->intercept = (long double)hailstone->y - (hailstone->slope * hailstone->x);
+  hailstone->m = ((double)hailstone->dy) / ((double)hailstone->dx);
+  hailstone->b =
+      (long double)hailstone->y - (hailstone->m * hailstone->x);
   hailstones[hailstone_count++] = hailstone;
 }
 
 void printHailstone(char *tag, hailstone_t *h) {
   printf("%s%lu, %lu, %lu @ %d, %d, %d\n\tm = %f, b = %Lf\n", tag, h->x, h->y,
-         h->z, h->dx, h->dy, h->dz, h->slope, h->intercept);
+         h->z, h->dx, h->dy, h->dz, h->m, h->b);
 }
 void printHailstones() {
   for (int i = 0; i < hailstone_count; i++) {
@@ -92,22 +93,7 @@ int main() {
   printHailstones();
 
   printf("\n\n---\n\n");
-  /* hailstone_t *A = hailstones[1];
-  hailstone_t *B = hailstones[4];
-  printHailstone("\nA ", A);
-  printHailstone("B ", B);
-  double x = (B->intercept - A->intercept) / (A->slope - B->slope);
-  double y = (A->slope * (x)) + A->intercept;
-  if (isinf(x) || isinf(y)) {
-    printf("parrallel\n");
-  } else if ((A->dx < 0 && A->x < x) || (A->dy < 0 && A->y < y)) {
-    printf("in past for A\n");
-  } else if ((B->dx < 0 && B->x < x) || (B->dy < 0 && B->y < y)) {
-    printf("in past for B\n");
-  } else if (x > test_area_min && x < test_area_max && y > test_area_min &&
-             y < test_area_max) {
-    printf("intercept x = %f, y = %f\n", x, y);
-  } */
+
   int intersections = 0;
   for (int i = 0; i < hailstone_count; i++) {
     hailstone_t *A = hailstones[i];
@@ -119,17 +105,19 @@ int main() {
       // printHailstone("\nA ", A);
       // printHailstone("B ", B);
       // printf("%d + %d: ", A->index, B->index);
-      long double x = (B->intercept - A->intercept) / (A->slope - B->slope);
-      long double y = (A->slope * (x)) + A->intercept;
+      long double x = (B->b - A->b) / (A->m - B->m);
+      long double y = (A->m * (x)) + A->b;
+      long double t_a = (x - A->x) / A->dx;
+      long double t_b = (x - B->x) / B->dx;
       if (isinf(x) || isinf(y)) {
         // printf("parallel\n");
-      } else if ((A->dx < 0 && A->x < x) || (A->dy < 0 && A->y < y)) {
+      } else if (t_a < 0) {
         // printf("in past for A\n");
-      } else if ((B->dx < 0 && B->x < x) || (B->dy < 0 && B->y < y)) {
+      } else if (t_b < 0) {
         // printf("in past for B\n");
       } else if (x > test_area_min && x < test_area_max && y > test_area_min &&
                  y < test_area_max) {
-        // printf("intercept x = %f, y = %f\n", x, y);
+        // printf("intersects x = %Lf, y = %Lf\n", x, y);
         intersections++;
       } else {
         // printf("outside area\n");
@@ -141,7 +129,7 @@ int main() {
 #ifdef TEST_MODE
   assert(intersections == 2);
 #else
-  assert(intersections < 21852);
+  assert(intersections == 19976);
 #endif
 
   printf("Part two: %d\n", 420);

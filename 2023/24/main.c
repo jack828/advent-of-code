@@ -5,7 +5,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/types.h>
-// #define TEST_MODE
+#define TEST_MODE
 #include "../utils.h"
 
 #ifdef TEST_MODE
@@ -30,14 +30,11 @@ typedef struct hailstone_t {
 
 hailstone_t **hailstones;
 int hailstone_count = 0;
-uint32_t *hashmap;
-#define HASHMAP_SIZE (UINT32_MAX)
 
 void fileHandler(int lines) {
   printf("lines: %d\n", lines);
 
   hailstones = calloc(lines, sizeof(hailstone_t *));
-  hashmap = calloc(HASHMAP_SIZE, sizeof(uint32_t));
 }
 
 void lineHandler(char *line, int length) {
@@ -49,8 +46,7 @@ void lineHandler(char *line, int length) {
 
   hailstone->index = hailstone_count;
   hailstone->m = ((double)hailstone->dy) / ((double)hailstone->dx);
-  hailstone->b =
-      (long double)hailstone->y - (hailstone->m * hailstone->x);
+  hailstone->b = (long double)hailstone->y - (hailstone->m * hailstone->x);
   hailstones[hailstone_count++] = hailstone;
 }
 
@@ -65,27 +61,6 @@ void printHailstones() {
   }
 }
 
-bool seenOrSamePair(hailstone_t *A, hailstone_t *B) {
-  if (A->index == B->index) {
-    return true;
-  }
-  uint16_t a = A->index;
-  uint16_t b = B->index;
-  if (b > a) {
-    a = B->index;
-    b = A->index;
-  }
-  uint32_t hash = 0;
-  hash |= (uint32_t)(a);
-  hash |= (uint32_t)(b) << 16;
-  hash = hash % HASHMAP_SIZE;
-  if (hashmap[hash]) {
-    return true;
-  }
-  hashmap[hash] = 1;
-  return false;
-}
-
 int main() {
   init();
   readInputFile(__FILE__, lineHandler, fileHandler);
@@ -97,11 +72,11 @@ int main() {
   int intersections = 0;
   for (int i = 0; i < hailstone_count; i++) {
     hailstone_t *A = hailstones[i];
-    for (int j = 0; j < hailstone_count; j++) {
+    for (int j = i + 1; j < hailstone_count; j++) {
       hailstone_t *B = hailstones[j];
-      if (seenOrSamePair(A, B)) {
-        continue;
-      }
+      // if (seenOrSamePair(A, B)) {
+      // continue;
+      // }
       // printHailstone("\nA ", A);
       // printHailstone("B ", B);
       // printf("%d + %d: ", A->index, B->index);
@@ -110,7 +85,7 @@ int main() {
       long double t_a = (x - A->x) / A->dx;
       long double t_b = (x - B->x) / B->dx;
       if (isinf(x) || isinf(y)) {
-        // printf("parallel\n");
+        printf("parallel\n");
       } else if (t_a < 0) {
         // printf("in past for A\n");
       } else if (t_b < 0) {

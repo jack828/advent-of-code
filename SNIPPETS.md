@@ -174,6 +174,22 @@ void printGrid() {
   } while ((token = strtok_r(NULL, delim, &end)) != NULL);
 ```
 
+## Unique pairs of elements in an array
+
+```c
+
+blah_t **items = {...};
+int blah_count = 69;
+
+for (int i = 0; i < blah_count; i++) {
+  blah_t *A = items[i];
+  for (int j = i + 1; j < blah_count; j++) {
+    blah_t *B = items[j];
+  }
+}
+
+```
+
 # Data Structures
 
 ## Hashmap

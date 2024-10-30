@@ -1,0 +1,15 @@
+#!/usr/bin/env zsh
+
+## USAGE
+# ./valgrind 2022 7
+gcc \
+  -Wall -ggdb -Og \
+  ./$1/$2/main.c -o ./$1/$2/main.out.debug && \
+  valgrind \
+  --tool=memcheck \
+  --leak-check=full \
+  --track-origins=yes \
+  --leak-resolution=high \
+  --show-reachable=yes \
+  --trace-children=yes \
+  ./$1/$2/main.out.debug

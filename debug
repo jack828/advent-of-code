@@ -2,4 +2,7 @@
 
 ## USAGE
 # ./debug 2022 7
-gcc -Wall -ggdb -Og ./$1/$2/main.c -o ./$1/$2/main.out.debug && gdb ./$1/$2/main.out.debug
+gcc \
+  -Wall -ggdb -Og \
+  ./$1/$2/main.c -o ./$1/$2/main.out.debug && \
+  gdb ./$1/$2/main.out.debug

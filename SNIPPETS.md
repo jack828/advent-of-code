@@ -203,6 +203,11 @@ for (int i = 0; i < blah_count; i++) {
 
 # Algorithms
 
+## Karger's
+
+ - [2023 Day 25](./2023/25/main.c)
+    - Minimum cut of a connected graph, splitting graph in two
+
 ## Flood Fill
 
  - 3D [2022 Day 18](./2022/18/main.c)

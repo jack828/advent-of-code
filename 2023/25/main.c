@@ -5,7 +5,8 @@
 #include <string.h>
 #include <sys/types.h>
 #include <time.h>
-#define TEST_MODE
+// #define TEST_MODE
+#include "../../lib/queue.h"
 #include "../utils.h"
 
 typedef struct node_t node_t;
@@ -357,7 +358,7 @@ graph_t *kargersAlgorithm() {
     // Decrement the vertex count to reflect the contraction
     graph->vertex_count--;
   }
-  //
+
   printf("exit loop, edges: %d\n", graph->edge_count);
   // printGraph(graph);
 
@@ -370,17 +371,84 @@ graph_t *kargersAlgorithm() {
   return NULL;
 }
 
+bool isAllowedEdge(graph_t *min_cut_graph, edge_t *edge) {
+  int bad_edge_1_v1_index = min_cut_graph->edges->edge->og_v1;
+  int bad_edge_1_v2_index = min_cut_graph->edges->edge->og_v2;
+  int bad_edge_2_v1_index = min_cut_graph->edges->next->edge->og_v1;
+  int bad_edge_2_v2_index = min_cut_graph->edges->next->edge->og_v2;
+  int bad_edge_3_v1_index = min_cut_graph->edges->next->next->edge->og_v1;
+  int bad_edge_3_v2_index = min_cut_graph->edges->next->next->edge->og_v2;
+  int edge_v1_index = edge->v1->index;
+  int edge_v2_index = edge->v2->index;
+  if ((edge_v1_index == bad_edge_1_v1_index &&
+       edge_v2_index == bad_edge_1_v2_index) ||
+      (edge_v1_index == bad_edge_2_v1_index &&
+       edge_v2_index == bad_edge_2_v2_index) ||
+      (edge_v1_index == bad_edge_3_v1_index &&
+       edge_v2_index == bad_edge_3_v2_index)) {
+    return false;
+  }
+  return true;
+}
+
+// Not really DFS, more "flood explore" or something
+// probably easily replaced by recursive alg
+int exploreGraph(graph_t *min_cut_graph) {
+
+  graph_t *graph = cloneGraph();
+
+  int visited[graph->vertex_count];
+  memset(visited, 0, sizeof(visited));
+
+  queue_t *queue = q_create();
+  q_enqueue(queue, graph->verticies[0]);
+
+  while (!q_empty(queue)) {
+    vertex_t *vertex = q_dequeue(queue);
+
+    if (visited[vertex->index]) {
+      continue;
+    }
+    visited[vertex->index] = 1;
+
+    edge_list_t *edge_list = vertex->edges;
+
+    while (edge_list) {
+      edge_t *edge = edge_list->edge;
+      if (isAllowedEdge(min_cut_graph, edge)) {
+        q_enqueue(queue, edge->v1);
+        q_enqueue(queue, edge->v2);
+      }
+
+      edge_list = edge_list->next;
+    }
+  }
+  q_destroy(queue);
+
+  int seen_verticies = 0;
+  for (int i = 0; i < graph->vertex_count; i++) {
+    if (visited[i]) {
+      seen_verticies++;
+    }
+  }
+
+  int part_one = (graph->vertex_count - seen_verticies) * seen_verticies;
+  // printf("seen %d, other %d\n", seen_verticies,
+         // graph->vertex_count - seen_verticies);
+  freeGraph(graph);
+  return part_one;
+}
+
 int main() {
   init();
   srand(time(NULL));
   readInputFile(__FILE__, lineHandler, fileHandler);
 
   // printNodes();
-  printf("\n---\n");
+  // printf("\n---\n");
   linkNodes();
-  printf("\n---\n");
-  printNodes(nodes, nodes_count);
-  printf("\n---\n");
+  // printf("\n---\n");
+  // printNodes(nodes, nodes_count);
 
   // do {
   // } while (contracted_to != 3)
@@ -398,22 +466,16 @@ int main() {
   //   remove it from graph->edges
   //   remove it from vertex edges
   //
-  // then, explore all edges (DFS?) from vertex[0] and count the number of seen verticies
-  // then, (node_count - seen_verticies) * node_count == part_one
+  // then, explore all edges (DFS?) from vertex[0] and count the number of seen
+  // verticies then, (node_count - seen_verticies) * node_count == part_one
   printf("runs: %d\n", runs);
+  int part_one = exploreGraph(min_cut_graph);
   freeGraph(min_cut_graph);
-  printf("Part one: %d\n", 69);
+  printf("Part one: %d\n", part_one);
 #ifdef TEST_MODE
-  // assert(69 == 420);
+  assert(part_one == 54);
 #else
-  assert(69 == 420);
-#endif
-
-  printf("Part two: %d\n", 420);
-#ifdef TEST_MODE
-  // assert(420 == 69);
-#else
-  assert(420 == 69);
+  assert(part_one == 538560);
 #endif
 
   for (int i = 0; i < nodes_count; i++) {

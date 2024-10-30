@@ -203,6 +203,12 @@ for (int i = 0; i < blah_count; i++) {
 
 # Algorithms
 
+## Adjacency list
+
+Still not sure I can wrap my head around these
+
+ - [2023 Day 25](./2023/25/main.c)
+
 ## Karger's
 
  - [2023 Day 25](./2023/25/main.c)

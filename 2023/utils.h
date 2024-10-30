@@ -12,9 +12,7 @@
 #define _AOC_LINE_MAX 1024
 #endif
 
-void sigxcpu_handler(int signum) {
-  exit(EXIT_FAILURE);
-}
+void sigxcpu_handler(int signum) { exit(EXIT_FAILURE); }
 
 void init() { signal(SIGXCPU, sigxcpu_handler); }
 
@@ -63,5 +61,10 @@ void readInputFile(const char *file, void (*lineHandler)(char *, int),
 int max(int a, int b) { return a > b ? a : b; }
 
 int min(int a, int b) { return a > b ? b : a; }
+
+// Make sure you srand(time(NULL)) before using!
+int rand_range(int min, int max) {
+  return min + rand() / ((RAND_MAX + 1u) / max);
+}
 
 #endif

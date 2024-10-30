@@ -64,4 +64,9 @@ int max(int a, int b) { return a > b ? a : b; }
 
 int min(int a, int b) { return a > b ? b : a; }
 
+// Make sure you srand(time(NULL)) before using!
+int rand_range(int min, int max) {
+  return min + rand() / ((RAND_MAX + 1u) / max);
+}
+
 #endif

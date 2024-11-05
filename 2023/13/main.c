@@ -4,7 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/types.h>
-// #define TEST_MODE
+#define TEST_MODE
 #include "../utils.h"
 
 typedef struct pattern_t {
@@ -50,13 +50,17 @@ void lineHandler(char *line, int length) {
   input_pattern->pattern[input_pattern->height++] = strdup(line);
 }
 
+void print_pattern(pattern_t *pattern) {
+  for (int y = 0; y < pattern->height; y++) {
+    printf("%.*s\n", pattern->width, pattern->pattern[y]);
+  }
+}
+
 void print_patterns() {
   for (int i = 0; i <= pattern_count; i++) {
     pattern_t *pattern = patterns[i];
     printf("Pattern #%d = %dx%d\n", i, pattern->height, pattern->width);
-    for (int y = 0; y < pattern->height; y++) {
-      printf("%.*s\n", pattern->width, pattern->pattern[y]);
-    }
+    print_pattern(pattern);
   }
 }
 
@@ -70,6 +74,7 @@ bool has_v_reflection(pattern_t *test_pattern, int col) {
   // and continue until COL-1 < 0 or COL > height
   int i = 0;
   bool all_same = true;
+  printf("col %d\n", col);
   while (++i) {
     int left = col - i;
     int right = col + i - 1;
@@ -77,6 +82,7 @@ bool has_v_reflection(pattern_t *test_pattern, int col) {
       return all_same;
     }
 
+    printf("l %d, r %d\n", left, right);
     for (int y = 0; y < height; y++) {
       all_same = !all_same ? false : pattern[y][left] == pattern[y][right];
     }
@@ -87,7 +93,7 @@ bool has_v_reflection(pattern_t *test_pattern, int col) {
   return false;
 }
 
-bool has_y_reflection(pattern_t *test_pattern, int row) {
+bool has_h_reflection(pattern_t *test_pattern, int row) {
   int width = test_pattern->width;
   int height = test_pattern->height;
   char **pattern = test_pattern->pattern;
@@ -100,6 +106,7 @@ bool has_y_reflection(pattern_t *test_pattern, int row) {
   while (++i) {
     int above = row - i;
     int below = row + i - 1;
+    // FIXME this limit is not working :( -1 for p1, 0 for p2
     if (above < 0 || below >= height - 1) {
       return all_same;
     }
@@ -114,6 +121,32 @@ bool has_y_reflection(pattern_t *test_pattern, int row) {
   return false;
 }
 
+int get_reflection_value(pattern_t *pattern) {
+  // horizontal reflection
+  for (int x = 1; x < pattern->width - 1; x++) {
+    bool has = has_v_reflection(pattern, x);
+    if (has) {
+      return x;
+    }
+  }
+  // only test for h if v fails
+  for (int y = 1; y < pattern->height; y++) {
+    bool has = has_h_reflection(pattern, y);
+    if (has) {
+      return 100 * y;
+    }
+  }
+  return -1; // no reflection!
+}
+
+void swap(char **pattern, int y, int x) {
+  if (pattern[y][x] == '#') {
+    pattern[y][x] = '.';
+  } else {
+    pattern[y][x] = '#';
+  }
+}
+
 int main() {
   init();
   readInputFile(__FILE__, lineHandler, fileHandler);
@@ -125,28 +158,7 @@ int main() {
   for (int i = 0; i <= pattern_count; i++) {
     pattern_t *pattern = patterns[i];
     // printf("\nPattern #%d = %dx%d\n", i, pattern->height, pattern->width);
-
-    int v_reflection = 0;
-    // horizontal reflection
-    for (int x = 1; x < pattern->width - 1; x++) {
-      bool has = has_v_reflection(pattern, x);
-      if (has) {
-        v_reflection = x;
-        break;
-      }
-    }
-    if (v_reflection) {
-      part_one += v_reflection;
-    } else {
-      // only test for h if v fails
-      for (int y = 1; y < pattern->height; y++) {
-        bool has = has_y_reflection(pattern, y);
-        if (has) {
-          part_one += 100 * y;
-          break;
-        }
-      }
-    }
+    part_one += get_reflection_value(pattern);
   }
 
   printf("Part one: %d\n", part_one);
@@ -156,11 +168,39 @@ int main() {
   assert(part_one == 37561);
 #endif
 
-  printf("Part two: %d\n", 420);
+  int part_two = 0;
+  for (int i = 0; i <= pattern_count; i++) {
+    pattern_t *pattern = patterns[i];
+    printf("\nPattern #%d = %dx%d\n", i, pattern->height, pattern->width);
+    bool has_new_reflection = false;
+    for (int y = 0; y < pattern->height; y++) {
+      if (has_new_reflection) {
+        break;
+      }
+      for (int x = 0; x < pattern->width; x++) {
+        if (has_new_reflection) {
+          break;
+        }
+
+        // swap the value at [y,x]
+        swap(pattern->pattern, y, x);
+        print_pattern(pattern);
+
+        int value = get_reflection_value(pattern);
+        if (value != -1) {
+          part_two += value;
+          has_new_reflection = true;
+        }
+        // unswap the value at [y,x]
+        swap(pattern->pattern, y, x);
+      }
+    }
+  }
+  printf("Part two: %d\n", part_two);
 #ifdef TEST_MODE
-  assert(420 == 69);
+  assert(part_two == 400);
 #else
-  assert(420 == 69);
+  assert(part_two == 69);
 #endif
   exit(EXIT_SUCCESS);
 }

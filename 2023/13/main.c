@@ -106,7 +106,7 @@ bool has_h_reflection(pattern_t *test_pattern, int row) {
   while (++i) {
     int above = row - i;
     int below = row + i - 1;
-    if (above < 0 || below >= height ) {
+    if (above < 0 || below >= height) {
       // reached the edge without failing, must be reflected
       return true;
     }
@@ -180,7 +180,7 @@ int main() {
     pattern_t *pattern = patterns[i];
     // printf("\nPattern #%d = %dx%d\n", i, pattern->height, pattern->width);
     bool has_new_reflection = false;
-    for (int y = 0; y <= pattern->height-1; y++) {
+    for (int y = 0; y <= pattern->height - 1; y++) {
       if (has_new_reflection) {
         break;
       }
@@ -188,7 +188,10 @@ int main() {
         if (has_new_reflection) {
           break;
         }
-
+        // TODO speed improvement?
+        // if (pattern->pattern[y][x] == '.') {
+        //   continue;
+        // }
         // swap the value at [y,x]
         swap(pattern->pattern, y, x);
         // print_pattern(pattern);

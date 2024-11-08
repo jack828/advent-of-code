@@ -2,8 +2,8 @@ const assert = require('node:assert/strict')
 const { join } = require('path')
 const { readFileSync } = require('fs')
 
-const raw = readFileSync(join(__dirname, './input.txt'), 'utf-8')
-// const raw = readFileSync(join(__dirname, './example.txt'), 'utf-8')
+// const raw = readFileSync(join(__dirname, './input.txt'), 'utf-8')
+const raw = readFileSync(join(__dirname, './example.txt'), 'utf-8')
 const data = raw
   .split('\n')
   .filter(Boolean)
@@ -34,10 +34,10 @@ const countArrangements = (input) => {
       if (line[i] == '#') {
         // it isnt, return early
         // printf("0 - no fit\n");
-        return 0;
+        return 0
       }
     }
-    return 1;
+    return 1
   }
 
   // if it starts with a ., discard the . and recursively check again.
@@ -94,13 +94,64 @@ const countArrangements = (input) => {
   // console.log('BAD\n')
   return 0
 }
-let total = 0
+const isValid = (line, groups) => {
+  const springs = line.split(/\.+/).filter(Boolean)
+  if (springs.length !== groups.length) {
+    return false
+  }
+  // console.log(springs)
+  return springs.every((s, i) => s.length === groups[i])
+}
+
+// does one level of arrangements
+const getArrangements = (line, i) => {
+  if (i > line.length) {
+    return line
+  }
+  let char = line[i]
+  if (char !== '?') {
+    return getArrangements(line, i + 1)
+  }
+  let a = line.substring(0, i) + '#' + line.substring(i + 1)
+  let b = line.substring(0, i) + '.' + line.substring(i + 1)
+
+  return [getArrangements(a, i + 1), getArrangements(b, i + 1)].flat()
+}
+const countArrangements2 = ([line, groups]) => {
+  console.log(line, groups)
+  isValid(line, groups)
+
+  let arrangements = getArrangements(line, 0)
+    .flat()
+    .filter((option) => isValid(option, groups))
+  // console.log(arrangements)
+  return arrangements.length
+}
+
+let totalPartOne = 0
 for (let row of data) {
-  const count = countArrangements(row)
-  total += count
+  // const count = countArrangements(row)
+  const count = countArrangements2(row)
+  // return
+  totalPartOne += count
   console.log({ count })
 }
 
-assert(total < 13658)
-console.log('part one', total)
+// assert(totalPartOne == 8270)
+console.log('part one', totalPartOne)
 // console.log(data)
+const partTwoData = data.map(([springs, groups]) => [
+  Array(5).fill(springs).join('?'),
+  Array(5).fill(groups).flat()
+])
+// console.log(partTwoData)
+let totalPartTwo = 0
+for (let row of partTwoData) {
+  // const count = countArrangements(row)
+  const count = countArrangements2(row)
+  console.log(count)
+  // return
+  totalPartTwo += count
+  console.log({ count })
+}
+console.log(totalPartTwo)

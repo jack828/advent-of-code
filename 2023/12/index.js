@@ -2,8 +2,9 @@ const assert = require('node:assert/strict')
 const { join } = require('path')
 const { readFileSync } = require('fs')
 
-// const raw = readFileSync(join(__dirname, './input.txt'), 'utf-8')
-const raw = readFileSync(join(__dirname, './example.txt'), 'utf-8')
+console.time('startp1')
+const raw = readFileSync(join(__dirname, './input.txt'), 'utf-8')
+// const raw = readFileSync(join(__dirname, './example.txt'), 'utf-8')
 const data = raw
   .split('\n')
   .filter(Boolean)
@@ -95,7 +96,7 @@ const countArrangements = (input) => {
   return 0
 }
 const isValid = (line, groups) => {
-  const springs = line.split(/\.+/).filter(Boolean)
+  const springs = line.split('.').filter(Boolean)
   if (springs.length !== groups.length) {
     return false
   }
@@ -103,20 +104,33 @@ const isValid = (line, groups) => {
   return springs.every((s, i) => s.length === groups[i])
 }
 
-// does one level of arrangements
+const cache = new Map()
 const getArrangements = (line, i) => {
-  if (i > line.length) {
-    return line
+  if (i === line.length) {
+    return [line]
   }
   let char = line[i]
   if (char !== '?') {
     return getArrangements(line, i + 1)
   }
-  let a = line.substring(0, i) + '#' + line.substring(i + 1)
-  let b = line.substring(0, i) + '.' + line.substring(i + 1)
+  let start = line.substring(0, i)
+  let end = line.substring(i + 1)
+  let end_arrs
+  let a = start + '#'
+  let b = start + '.'
 
+  // if (cache.has(end)) {
+  //   end_arrs = cache.get(end)
+  //   console.log('hit')
+  // } else {
+  end_arrs = getArrangements(end, i - start.length)
+  // cache.set(end, end_arrs)
+  // }
+
+  return end_arrs.map((arr) => [a + arr, b + arr]).flat()
   return [getArrangements(a, i + 1), getArrangements(b, i + 1)].flat()
 }
+
 const countArrangements2 = ([line, groups]) => {
   console.log(line, groups)
   isValid(line, groups)
@@ -128,7 +142,7 @@ const countArrangements2 = ([line, groups]) => {
   return arrangements.length
 }
 
-let totalPartOne = 0
+/* let totalPartOne = 0
 for (let row of data) {
   // const count = countArrangements(row)
   const count = countArrangements2(row)
@@ -139,19 +153,105 @@ for (let row of data) {
 
 // assert(totalPartOne == 8270)
 console.log('part one', totalPartOne)
+
+console.timeEnd('startp1') */
+console.time('startp1t2')
+
+console.log('\n\ntake two\n\n')
+const fits = (springs, group) => {}
+
+const solve = (springs, groups, cache, i) => {
+  // console.log(springs.substring(i), groups, i)
+  //     if num groups is 0:
+  if (groups.length === 0) {
+    //         if any '#' remaining in springs return 0
+    if (i < springs.length && springs.substring(i + 1).includes('#')) {
+      return 0n
+    } else {
+      //         else return 1
+      return 1n
+    }
+  }
+
+  //     advance i to the next available '?' or '#'
+  for (; i < springs.length; i++) {
+    if (springs[i] !== '.') {
+      break
+    }
+  }
+
+  //     if i > length of springs return 0
+  if (i >= springs.length) {
+    return 0n
+  }
+  //
+  //     if (i, num groups) is in cache, return it
+  if (cache.has(JSON.stringify([i, groups.length]))) {
+    return cache.get(JSON.stringify([i, groups.length]))
+  }
+
+  let result = 0n
+
+  let [targetGroup, ...rest] = groups
+  // let substr = springs.substring(i, Math.min(i + targetGroup, springs.length+1))
+  let substr = springs.substring(i, i + targetGroup)
+  let end = i + targetGroup
+  // console.log(substr)
+  let allSprings =
+    substr.split('').filter((c) => c === '#' || c === '?').length ===
+    targetGroup
+  let fits = end <= springs.length && allSprings && springs[end] !== '#'
+
+  //     if we can fill the springs at i with the first group in groups:
+  if (fits) {
+    //         recursively call with the groups after that at index: i + groupsize + 1
+    result += solve(springs, [...rest], cache, i + targetGroup + 1)
+  }
+  //
+  //     if the current spot is '?':
+  if (springs[i] === '?') {
+    //         recursively call with current groups at the next index
+    result += solve(springs, [...groups], cache, i + 1)
+  }
+  //
+  //     add the result to the cache
+  cache.set(JSON.stringify([i, groups.length]), result)
+  return result
+}
+
+let totalPartOne2 = 0n
+for (let row of data) {
+  // const count = countArrangements(row)
+  const [line, groups] = row
+  const count = solve(line, groups, new Map(), 0)
+  console.log({ count })
+  // return
+  totalPartOne2 += count
+}
+
+// assert(totalPartOne == 8270)
+console.log('part one 2', totalPartOne2)
+
+console.timeEnd('startp1t2')
+console.time('startp2')
 // console.log(data)
 const partTwoData = data.map(([springs, groups]) => [
   Array(5).fill(springs).join('?'),
   Array(5).fill(groups).flat()
 ])
 // console.log(partTwoData)
-let totalPartTwo = 0
+// return
+let totalPartTwo = 0n
 for (let row of partTwoData) {
   // const count = countArrangements(row)
-  const count = countArrangements2(row)
+  const [line, groups] = row
+  // const count = countArrangements2(row)
+  const count = solve(line, groups, new Map(), 0)
   console.log(count)
   // return
   totalPartTwo += count
   console.log({ count })
 }
 console.log(totalPartTwo)
+assert(totalPartTwo < 216277512051141n)
+console.timeEnd('startp2')

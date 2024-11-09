@@ -157,7 +157,10 @@ console.log('part one', totalPartOnea)
 
 console.time('startp1')
 
-console.log('\n\ntake two\n\n')
+// thanks to
+// https://old.reddit.com/r/adventofcode/comments/18hg99r/2023_day_12_simple_tutorial_with_memoization/
+// and
+// https://github.com/iggyzuk/advent-of-code/blob/master/2023/day-12-2023/src/bin/part1.rs#L135
 let can_fit = (springs, start, end) => {
   // let all_chars = springs.chars().collect::<Vec<_>>();
   // // make sure the range's end fits into the springs string
@@ -173,9 +176,6 @@ let can_fit = (springs, start, end) => {
   if (substr) {
     return false
   }
-  // if springs[range.clone()].chars().any(|x| x == '.') {
-  //     return false;
-  // }
   // // make sure the next char is one of: { out_of_bounds, '.', '?' } – not '#'
   // let next = range.end;
   if (end < springs.length && springs[end] == '#') {
@@ -190,7 +190,7 @@ const solve = (springs, groups, cache, i) => {
   //     if num groups is 0:
   if (groups.length === 0) {
     //         if any '#' remaining in springs return 0
-    if (i < springs.length && springs.substring(i ).includes('#')) {
+    if (i < springs.length && springs.substring(i).includes('#')) {
       return 0
     } else {
       //         else return 1
@@ -209,32 +209,28 @@ const solve = (springs, groups, cache, i) => {
   if (i >= springs.length) {
     return 0
   }
-  //
+  const key = `${i},${groups.length}`
   //     if (i, num groups) is in cache, return it
-  if (cache.has(JSON.stringify([i, groups.length]))) {
-    return cache.get(JSON.stringify([i, groups.length]))
+  if (cache.has(key)) {
+    return cache.get(key)
   }
 
   let result = 0
 
-  let [targetGroup, ...rest] = groups
-  // let substr = springs.substring(i, Math.min(i + targetGroup, springs.length+1))
-
   //     if we can fill the springs at i with the first group in groups:
-  // if (fits) {
-  if (can_fit(springs, i, i + targetGroup)) {
+  if (can_fit(springs, i, i + groups[0])) {
     //         recursively call with the groups after that at index: i + groupsize + 1
-    result += solve(springs, [...rest], cache, i + targetGroup + 1)
+    result += solve(springs, groups.slice(1), cache, i + groups[0] + 1)
   }
   //
   //     if the current spot is '?':
   if (springs[i] === '?') {
     //         recursively call with current groups at the next index
-    result += solve(springs, [...groups], cache, i + 1)
+    result += solve(springs, groups, cache, i + 1)
   }
   //
   //     add the result to the cache
-  cache.set(JSON.stringify([i, groups.length]), result)
+  cache.set(key, result)
   return result
 }
 

@@ -12,6 +12,13 @@
 #include <time.h>
 #include <unistd.h>
 #include <uv.h>
+#define ANSI_COLOUR_RED "\x1b[31m"
+#define ANSI_COLOUR_GREEN "\x1b[32m"
+#define ANSI_COLOUR_YELLOW "\x1b[33m"
+#define ANSI_COLOUR_BLUE "\x1b[34m"
+#define ANSI_COLOUR_MAGENTA "\x1b[35m"
+#define ANSI_COLOUR_CYAN "\x1b[36m"
+#define ANSI_COLOUR_RESET "\x1b[0m"
 
 #define UV_CHECK(r, msg)                                                       \
   if (r < 0) {                                                                 \
@@ -40,15 +47,18 @@ static const uint64_t DEBOUNCE_TIMEOUT_MS = 150;
 
 static void on_compile_exit(uv_process_t *req, int64_t exit_status,
                             int term_signal) {
-  fprintf(stderr, "Process exited with status %ld, signal %d\n", exit_status,
-          term_signal);
+  if (exit_status) {
+    fprintf(stderr,
+            ANSI_COLOUR_RED
+            "Failed to compile, exit status %ld for PID %d\n" ANSI_COLOUR_RESET,
+            exit_status, req->pid);
+  }
   uv_close((uv_handle_t *)req, NULL);
   free(req);
 }
 
 static void on_exe_debounce_timer(uv_timer_t *handle) {
-  printf("exe No events detected for %lu ms, handling event now.\n",
-         DEBOUNCE_TIMEOUT_MS);
+  printf(ANSI_COLOUR_BLUE "Running program...\n" ANSI_COLOUR_RESET);
   // TODO the proper timer one, please
   // run the file
   uv_process_t *exe_process = malloc(sizeof(uv_process_t));
@@ -76,8 +86,7 @@ static void on_exe_debounce_timer(uv_timer_t *handle) {
 static void on_src_debounce_timer(uv_timer_t *handle) {
   // TODO mutex probably cool/correct to restrict this?
   // https://docs.libuv.org/en/stable/guide/threads.html#mutexes
-  printf("src No events detected for %lu ms, handling event now.\n",
-         DEBOUNCE_TIMEOUT_MS);
+  printf(ANSI_COLOUR_CYAN "Recompiling source...\n" ANSI_COLOUR_RESET);
   // compile the source
   uv_process_t *compile_process = malloc(sizeof(uv_process_t));
   uv_process_options_t options = {0};
@@ -113,9 +122,6 @@ static void on_src_debounce_timer(uv_timer_t *handle) {
   options.exit_cb = on_compile_exit;
   int ret = uv_spawn(uv_loop, compile_process, &options);
   UV_CHECK(ret, "compile process spawn");
-
-  printf("Launched compile process with ID %d cwd %s\n", compile_process->pid,
-         options.cwd);
 }
 
 static void program_start(uv_timer_t *timer) {

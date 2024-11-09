@@ -110,3 +110,6 @@ benchmark
 benchmark.debug
 
 input.txt
+
+mon
+mon.debug

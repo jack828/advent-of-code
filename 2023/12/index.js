@@ -2,9 +2,11 @@ const assert = require('node:assert/strict')
 const { join } = require('path')
 const { readFileSync } = require('fs')
 
-console.time('startp1')
-const raw = readFileSync(join(__dirname, './input.txt'), 'utf-8')
-// const raw = readFileSync(join(__dirname, './example.txt'), 'utf-8')
+let test_mode = true
+test_mode = false
+const raw = test_mode
+  ? readFileSync(join(__dirname, './example.txt'), 'utf-8')
+  : readFileSync(join(__dirname, './input.txt'), 'utf-8')
 const data = raw
   .split('\n')
   .filter(Boolean)
@@ -132,7 +134,6 @@ const getArrangements = (line, i) => {
 }
 
 const countArrangements2 = ([line, groups]) => {
-  console.log(line, groups)
   isValid(line, groups)
 
   let arrangements = getArrangements(line, 0)
@@ -142,34 +143,58 @@ const countArrangements2 = ([line, groups]) => {
   return arrangements.length
 }
 
-/* let totalPartOne = 0
+/* let totalPartOnea = 0
 for (let row of data) {
   // const count = countArrangements(row)
   const count = countArrangements2(row)
   // return
-  totalPartOne += count
-  console.log({ count })
+  totalPartOnea += count
 }
 
-// assert(totalPartOne == 8270)
-console.log('part one', totalPartOne)
+assert(totalPartOne == 8270)
+console.log('part one', totalPartOnea)
+*/
 
-console.timeEnd('startp1') */
-console.time('startp1t2')
+console.time('startp1')
 
 console.log('\n\ntake two\n\n')
-const fits = (springs, group) => {}
+let can_fit = (springs, start, end) => {
+  // let all_chars = springs.chars().collect::<Vec<_>>();
+  // // make sure the range's end fits into the springs string
+  // //  XXXXX---] – good
+  // //  XXX]X !   – bad
+  if (end > springs.length) {
+    return false
+  }
+  // // make sure that all chars in range are either a '?' or '#' – not '.'
+  //
+  let substr = springs.substring(start, end).includes('.')
+  // console.log(substr)
+  if (substr) {
+    return false
+  }
+  // if springs[range.clone()].chars().any(|x| x == '.') {
+  //     return false;
+  // }
+  // // make sure the next char is one of: { out_of_bounds, '.', '?' } – not '#'
+  // let next = range.end;
+  if (end < springs.length && springs[end] == '#') {
+    return false
+  }
+
+  return true
+}
 
 const solve = (springs, groups, cache, i) => {
   // console.log(springs.substring(i), groups, i)
   //     if num groups is 0:
   if (groups.length === 0) {
     //         if any '#' remaining in springs return 0
-    if (i < springs.length && springs.substring(i + 1).includes('#')) {
-      return 0n
+    if (i < springs.length && springs.substring(i ).includes('#')) {
+      return 0
     } else {
       //         else return 1
-      return 1n
+      return 1
     }
   }
 
@@ -182,7 +207,7 @@ const solve = (springs, groups, cache, i) => {
 
   //     if i > length of springs return 0
   if (i >= springs.length) {
-    return 0n
+    return 0
   }
   //
   //     if (i, num groups) is in cache, return it
@@ -190,20 +215,14 @@ const solve = (springs, groups, cache, i) => {
     return cache.get(JSON.stringify([i, groups.length]))
   }
 
-  let result = 0n
+  let result = 0
 
   let [targetGroup, ...rest] = groups
   // let substr = springs.substring(i, Math.min(i + targetGroup, springs.length+1))
-  let substr = springs.substring(i, i + targetGroup)
-  let end = i + targetGroup
-  // console.log(substr)
-  let allSprings =
-    substr.split('').filter((c) => c === '#' || c === '?').length ===
-    targetGroup
-  let fits = end <= springs.length && allSprings && springs[end] !== '#'
 
   //     if we can fill the springs at i with the first group in groups:
-  if (fits) {
+  // if (fits) {
+  if (can_fit(springs, i, i + targetGroup)) {
     //         recursively call with the groups after that at index: i + groupsize + 1
     result += solve(springs, [...rest], cache, i + targetGroup + 1)
   }
@@ -219,20 +238,39 @@ const solve = (springs, groups, cache, i) => {
   return result
 }
 
-let totalPartOne2 = 0n
+let totalPartOne = 0
 for (let row of data) {
   // const count = countArrangements(row)
   const [line, groups] = row
   const count = solve(line, groups, new Map(), 0)
-  console.log({ count })
+  // console.log({ count })
   // return
-  totalPartOne2 += count
+  totalPartOne += count
+}
+console.log('part one', totalPartOne)
+console.timeEnd('startp1')
+
+if (test_mode) {
+  assert.equal(solve('???.###', [1, 1, 3], new Map(), 0), 1)
+  assert.equal(solve('.??..??...?##.', [1, 1, 3], new Map(), 0), 4)
+  assert.equal(solve('?#?#?#?#?#?#?#?', [1, 3, 1, 6], new Map(), 0), 1)
+  assert.equal(solve('????.#...#...', [4, 1, 1], new Map(), 0), 1)
+  assert.equal(solve('????.######..#####.', [1, 6, 5], new Map(), 0), 4)
+  assert.equal(solve('?###????????', [3, 2, 1], new Map(), 0), 10)
+  assert.equal(solve('?.?', [1, 1], new Map(), 0), 1)
+  assert.equal(solve('?', [1], new Map(), 0), 1)
+  assert.equal(solve('...', [1, 1, 1], new Map(), 0), 0)
+  assert.equal(solve('.......?.....#?', [1, 2], new Map(), 0), 1)
+  assert.equal(solve('?????', [1], new Map(), 0), 5)
+  assert.equal(solve('?????', [1, 1], new Map(), 0), 6)
+  assert.equal(solve('???????', [1, 5], new Map(), 0), 1)
+  assert.equal(solve('?????', [1, 2], new Map(), 0), 3)
+  assert.equal(solve('??????#??#??#??', [1, 2, 9], new Map(), 0), 4)
+  assert(totalPartOne == 21)
+} else {
+  assert(totalPartOne == 8270)
 }
 
-// assert(totalPartOne == 8270)
-console.log('part one 2', totalPartOne2)
-
-console.timeEnd('startp1t2')
 console.time('startp2')
 // console.log(data)
 const partTwoData = data.map(([springs, groups]) => [
@@ -241,17 +279,21 @@ const partTwoData = data.map(([springs, groups]) => [
 ])
 // console.log(partTwoData)
 // return
-let totalPartTwo = 0n
+let totalPartTwo = 0
 for (let row of partTwoData) {
   // const count = countArrangements(row)
   const [line, groups] = row
   // const count = countArrangements2(row)
   const count = solve(line, groups, new Map(), 0)
-  console.log(count)
+  // console.log(count)
   // return
   totalPartTwo += count
-  console.log({ count })
+  // console.log({ count })
 }
 console.log(totalPartTwo)
-assert(totalPartTwo < 216277512051141n)
 console.timeEnd('startp2')
+if (test_mode) {
+  assert(totalPartTwo === 525152)
+} else {
+  assert(totalPartTwo == 204640299929836)
+}

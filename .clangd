@@ -11,7 +11,7 @@ CompileFlags:
     -Wunreachable-code,
     -Wpedantic,
     -std=gnu17,
-    -Wunused-parameter,
     -Wno-error=unused-parameter,
+    -Wno-warning=unused-parameter,
     -Wno-strict-prototypes,
   ]

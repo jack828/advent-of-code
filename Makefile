@@ -4,11 +4,17 @@ LINKFLAGS=-lm
 DEBUGFLAGS=-ggdb -O0
 TARGET=benchmark
 
-$(TARGET):
+.phony: debug clean
+
+$(TARGET): $(TARGET).c
 	$(CC) $(TARGET).c $(CFLAGS) -o $(TARGET) $(LINKFLAGS)
 
-debug:
+mon: mon.c
+	$(CC) $(TARGET).c $(CFLAGS) -o $(TARGET) $(LINKFLAGS) `pkg-config --libs libuv` $(DEBUGFLAGS)
+
+
+debug: $(TARGET)
 	$(CC) $(TARGET).c $(CFLAGS) -o $(TARGET).debug $(LINKFLAGS) $(DEBUGFLAGS)
 
 clean:
-	rm $(TARGET)
+	rm -f $(TARGET)

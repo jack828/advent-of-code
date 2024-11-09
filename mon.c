@@ -45,6 +45,24 @@ size_t src_directory_length = 1024;
 static uv_timer_t *exe_debounce_timer = NULL;
 static const uint64_t DEBOUNCE_TIMEOUT_MS = 150;
 
+char *formatTime(long time) {
+  char *buf = calloc(24, sizeof(char));
+  if (time == 0) {
+    sprintf(buf, "%s", "--");
+  } else if (time < ONE_MS_IN_US) {
+    sprintf(buf, "%ld µs", time);
+  } else if (time < ONE_S_IN_US) {
+    sprintf(buf, "%ld.%02ld ms", time / 1000, (time % 1000) / 10);
+  } else if (time < ONE_M_IN_US) {
+    sprintf(buf, "%ld.%03ld s", time / ONE_S_IN_US,
+            (time % ONE_S_IN_US) / 1000);
+  } else {
+    sprintf(buf, "%ld:%02ld.%03ld m", time / ONE_M_IN_US,
+            (time % ONE_M_IN_US) / ONE_S_IN_US, (time % ONE_S_IN_US) / 1000);
+  }
+  return buf;
+}
+
 static void on_compile_exit(uv_process_t *req, int64_t exit_status,
                             int term_signal) {
   if (exit_status) {
@@ -52,6 +70,7 @@ static void on_compile_exit(uv_process_t *req, int64_t exit_status,
             ANSI_COLOUR_RED
             "Failed to compile, exit status %ld for PID %d\n" ANSI_COLOUR_RESET,
             exit_status, req->pid);
+    fflush(stderr);
   }
   uv_close((uv_handle_t *)req, NULL);
   free(req);
@@ -59,34 +78,56 @@ static void on_compile_exit(uv_process_t *req, int64_t exit_status,
 
 static void on_exe_debounce_timer(uv_timer_t *handle) {
   printf(ANSI_COLOUR_BLUE "Running program...\n" ANSI_COLOUR_RESET);
-  // TODO the proper timer one, please
-  // run the file
-  uv_process_t *exe_process = malloc(sizeof(uv_process_t));
-  uv_process_options_t options = {0};
-  char *args[] = {"./main.out", NULL};
-  options.file = args[0];
-  options.args = args;
-  options.cwd = (char *)handle->data;
-  options.stdio_count = 3;
-  uv_stdio_container_t child_stdio[3];
-  child_stdio[0].flags = UV_IGNORE;     // stdin
-  child_stdio[1].flags = UV_INHERIT_FD; // stdout
-  child_stdio[1].data.fd = 1;
-  child_stdio[2].flags = UV_INHERIT_FD; // stderr
-  child_stdio[2].data.fd = 2;
-  options.stdio = child_stdio;
-  options.exit_cb = on_compile_exit;
-  int ret = uv_spawn(uv_loop, exe_process, &options);
-  UV_CHECK(ret, "exe process spawn");
+  fflush(stdout);
 
-  printf("Launched exe process with ID %d cwd %s\n", exe_process->pid,
-         options.cwd);
+  // run the file
+  char target_path[src_directory_length];
+  sprintf(target_path, "%smain.out", (char *)handle->data);
+  struct timeval start, end;
+  struct rusage usage;
+  gettimeofday(&start, NULL);
+
+  pid_t pid = fork();
+  if (pid == 0) {
+    // Child process
+    execl(target_path, target_path, NULL);
+    _exit(EXIT_FAILURE); // die if it gets here, above line replaces program
+                         // image
+  } else if (pid > 0) {
+    // Parent process
+    int status;
+    wait4(pid, &status, 0, &usage);
+    gettimeofday(&end, NULL);
+
+    if (WIFEXITED(status) && (WEXITSTATUS(status) == 0)) {
+      printf(ANSI_COLOUR_GREEN "%s exited with status 0\n" ANSI_COLOUR_RESET,
+             target_path);
+    } else {
+      printf(ANSI_COLOUR_RED
+             "%s exited abnormally with status %d \n" ANSI_COLOUR_RESET,
+             target_path, WEXITSTATUS(status));
+    }
+    fflush(stdout);
+    long s = end.tv_sec - start.tv_sec;
+    long us = end.tv_usec - start.tv_usec;
+    long total = (s * 1000000) + us;
+
+    char *runtime = formatTime(total);
+    printf("Time:\t%s\n", runtime);
+    printf("Memory:\t%ld KB\n", usage.ru_maxrss);
+    free(runtime);
+  } else {
+    // Error
+    perror("fork() failed");
+    exit(EXIT_FAILURE);
+  }
 }
 
 static void on_src_debounce_timer(uv_timer_t *handle) {
   // TODO mutex probably cool/correct to restrict this?
   // https://docs.libuv.org/en/stable/guide/threads.html#mutexes
   printf(ANSI_COLOUR_CYAN "Recompiling source...\n" ANSI_COLOUR_RESET);
+  fflush(stdout);
   // compile the source
   uv_process_t *compile_process = malloc(sizeof(uv_process_t));
   uv_process_options_t options = {0};
@@ -222,23 +263,10 @@ static struct argp_option options[] = {
     {.name = "day", .key = 'd', .arg = "DAY", .doc = "Day e.g. 20", .group = 1},
     {0}};
 
-typedef struct runtime_t {
-  long min;
-  long max;
-  long avg;
-  long total;
-  long runs;
-  long *times;
-  char *path;
-} runtime_t;
-
 struct arguments {
   char *year;
   char *day;
   char *path;
-
-  int runs;
-  int maxTime;
 };
 
 static error_t parse_opt(int key, char *arg, struct argp_state *state) {
@@ -258,101 +286,6 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
 }
 
 static struct argp argp = {options, parse_opt, args_doc, doc, NULL, NULL, NULL};
-
-char *formatTime(long time) {
-  char *buf = calloc(24, sizeof(char));
-  if (time == 0) {
-    sprintf(buf, "%s", "--");
-  } else if (time < ONE_MS_IN_US) {
-    sprintf(buf, "%ld µs", time);
-  } else if (time < ONE_S_IN_US) {
-    sprintf(buf, "%ld.%02ld ms", time / 1000, (time % 1000) / 10);
-  } else if (time < ONE_M_IN_US) {
-    sprintf(buf, "%ld.%03ld s", time / ONE_S_IN_US,
-            (time % ONE_S_IN_US) / 1000);
-  } else {
-    sprintf(buf, "%ld:%02ld.%03ld m", time / ONE_M_IN_US,
-            (time % ONE_M_IN_US) / ONE_S_IN_US, (time % ONE_S_IN_US) / 1000);
-  }
-  return buf;
-}
-
-/* Take the path to an executable and return the average runtime of max
- * iterationTimes times
- */
-runtime_t *timeFileExecution(struct arguments *arguments, char *path) {
-  runtime_t *runtime = malloc(sizeof(runtime_t));
-  memset(runtime, 0, sizeof(runtime_t));
-  runtime->times = calloc(arguments->runs, sizeof(long));
-  runtime->min = LONG_MAX;
-  runtime->path = path;
-
-  int null_fd = open("/dev/null", O_WRONLY);
-  for (int i = 0; i < arguments->runs; i++) {
-    struct timeval start, end;
-    gettimeofday(&start, NULL);
-
-    pid_t pid = fork();
-    if (pid == 0) {
-      // Child process
-      dup2(null_fd, STDOUT_FILENO);
-      dup2(null_fd, STDERR_FILENO);
-      struct rlimit rl;
-      rl.rlim_cur = arguments->maxTime / ONE_S_IN_US;
-      rl.rlim_max = arguments->maxTime / ONE_S_IN_US;
-      setrlimit(RLIMIT_CPU, &rl);
-      execl(path, path, NULL);
-      _exit(EXIT_FAILURE); // die if it gets here, above line replaces program
-                           // image
-    } else if (pid > 0) {
-      // Parent process
-      int status;
-      waitpid(pid, &status, 0);
-      gettimeofday(&end, NULL);
-
-      if (WIFEXITED(status) && (WEXITSTATUS(status) == 0)) {
-        // exit OK
-      } else if (WIFSIGNALED(status) && (WTERMSIG(status) == SIGXCPU)) {
-        // TODO never gets in here
-        printf("%s killed, out of time\n", path);
-        break;
-      } else {
-        printf("%s exited abnormally with status %d (%d)\n", path,
-               WEXITSTATUS(status), status);
-        break;
-      }
-      long s = end.tv_sec - start.tv_sec;
-      long us = end.tv_usec - start.tv_usec;
-      long total = (s * 1000000) + us;
-
-      runtime->total += total;
-      runtime->times[runtime->runs++] = total;
-      if (total > runtime->max) {
-        runtime->max = total;
-      }
-      if (total < runtime->min) {
-        runtime->min = total;
-      }
-
-      if (runtime->total > arguments->maxTime) {
-        printf("%s stopping, out of time\n", path);
-        break;
-      }
-    } else {
-      // Error
-      perror("fork() failed");
-      exit(EXIT_FAILURE);
-    }
-  }
-  close(null_fd);
-
-  if (runtime->runs > 0) {
-    runtime->avg = runtime->total / runtime->runs;
-  } else {
-    runtime->min = 0;
-  }
-  return runtime;
-}
 
 int main(int argc, char **argv) {
   struct arguments arguments;

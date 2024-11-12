@@ -1,11 +1,15 @@
 #include <argp.h>
 #include <fcntl.h>
 #include <glob.h>
+#include <signal.h>
+#include <stdatomic.h>
 #include <stdbool.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/resource.h>
+#include <sys/syscall.h>
 #include <sys/time.h>
 #include <sys/types.h>
 #include <sys/wait.h>
@@ -25,6 +29,7 @@
     fprintf(stderr, "%s: %s\n", msg, uv_strerror(r));                          \
     exit(1);                                                                   \
   }
+#define GET_T_ID syscall(SYS_gettid)
 
 /*
  * Parts of this file was taken with love from
@@ -44,6 +49,18 @@ static uv_timer_t *src_debounce_timer = NULL;
 size_t src_directory_length = 1024;
 static uv_timer_t *exe_debounce_timer = NULL;
 static const uint64_t DEBOUNCE_TIMEOUT_MS = 150;
+
+typedef struct exe_context_t exe_context_t;
+
+struct exe_context_t {
+  uv_work_t *req;
+  char *dir;
+  pid_t child_pid;
+  pid_t thread_pid;
+  volatile atomic_bool cancel_flag;
+};
+
+exe_context_t *ctx;
 
 char *formatTime(long time) {
   char *buf = calloc(24, sizeof(char));
@@ -72,55 +89,120 @@ static void on_compile_exit(uv_process_t *req, int64_t exit_status,
             exit_status, req->pid);
     fflush(stderr);
   }
-  uv_close((uv_handle_t *)req, NULL);
-  free(req);
+  uv_close((uv_handle_t *)req, (uv_close_cb)free);
 }
 
-static void on_exe_debounce_timer(uv_timer_t *handle) {
-  printf(ANSI_COLOUR_BLUE "Running program...\n" ANSI_COLOUR_RESET);
-  fflush(stdout);
+void terminate_child(int signum) {
+  // signal handler is required for wait4 to be interrupted by SIGCHLD
+}
 
-  // run the file
+void work_fn(uv_work_t *req) {
+  exe_context_t *context = ((exe_context_t *)req->data);
+  int64_t tid = GET_T_ID;
+  // fprintf(stderr, ">thread pid %ld\n", tid);
+  context->thread_pid = tid;
+  context->child_pid = fork();
+
   char target_path[src_directory_length];
-  sprintf(target_path, "%smain.out", (char *)handle->data);
+  sprintf(target_path, "%smain.out", context->dir);
   struct timeval start, end;
   struct rusage usage;
   gettimeofday(&start, NULL);
 
-  pid_t pid = fork();
-  if (pid == 0) {
+  if (context->child_pid == 0) {
     // Child process
     execl(target_path, target_path, NULL);
     _exit(EXIT_FAILURE); // die if it gets here, above line replaces program
                          // image
-  } else if (pid > 0) {
-    // Parent process
+  } else if (context->child_pid > 0) {
+    // In the parent process (worker thread)
+    // fprintf(stderr, ">child_pid %d\n", context->child_pid);
+
+    // allegedly how wait4 can be interrupted, but i never got it working
+    struct sigaction sa = {0};
+    sa.sa_handler = terminate_child;
+    sigemptyset(&sa.sa_mask);
+    sa.sa_flags = 0;
+    sigaction(SIGCHLD, &sa, NULL);
+
     int status;
-    wait4(pid, &status, 0, &usage);
-    gettimeofday(&end, NULL);
+    pid_t pid;
+    while (1) {
+      pid = wait4(context->child_pid, &status, 0, &usage);
+      gettimeofday(&end, NULL);
 
-    if (WIFEXITED(status) && (WEXITSTATUS(status) == 0)) {
-      printf(ANSI_COLOUR_GREEN "%s exited with status 0\n" ANSI_COLOUR_RESET,
-             target_path);
-    } else {
-      printf(ANSI_COLOUR_RED
-             "%s exited abnormally with status %d \n" ANSI_COLOUR_RESET,
-             target_path, WEXITSTATUS(status));
+      // printf(">loop %d, errno %d\n", pid, errno);
+      if (pid == -1 && errno == EINTR) {
+        // TODO never works with this, just hangs
+        // does not get here
+        if (context->cancel_flag) {
+          printf(">Cancellation requested, terminating child\n");
+          kill(context->child_pid, SIGKILL);
+          break;
+        }
+        // Signal received, reattempt wait4 if needed
+        continue;
+      } else if (pid == context->child_pid) {
+        if (WIFEXITED(status) && (WEXITSTATUS(status) == 0)) {
+          printf(ANSI_COLOUR_GREEN
+                 "%s exited with status 0\n" ANSI_COLOUR_RESET,
+                 target_path);
+        } else {
+          printf(ANSI_COLOUR_RED
+                 "%s exited abnormally with status %d \n" ANSI_COLOUR_RESET,
+                 target_path, WEXITSTATUS(status));
+        }
+        fflush(stdout);
+        long s = end.tv_sec - start.tv_sec;
+        long us = end.tv_usec - start.tv_usec;
+        long total = (s * 1000000) + us;
+
+        char *runtime = formatTime(total);
+        printf(ANSI_COLOUR_MAGENTA "Time:\t%s\n", runtime);
+        printf("Memory:\t%ld KB\n" ANSI_COLOUR_RESET, usage.ru_maxrss);
+        fflush(stdout);
+        free(runtime);
+
+        break;
+      } else if (errno) {
+        perror("Error in wait4");
+        break;
+      }
     }
-    fflush(stdout);
-    long s = end.tv_sec - start.tv_sec;
-    long us = end.tv_usec - start.tv_usec;
-    long total = (s * 1000000) + us;
-
-    char *runtime = formatTime(total);
-    printf("Time:\t%s\n", runtime);
-    printf("Memory:\t%ld KB\n", usage.ru_maxrss);
-    free(runtime);
+    context->cancel_flag = 0;
   } else {
     // Error
     perror("fork() failed");
     exit(EXIT_FAILURE);
   }
+}
+
+void after_work_cb(uv_work_t *req, int status) { free(req); }
+
+static void on_exe_debounce_timer(uv_timer_t *handle) {
+  printf(ANSI_COLOUR_BLUE "Running program...\n" ANSI_COLOUR_RESET);
+  fflush(stdout);
+  if (ctx->req) {
+    printf("killing active thread %d child %d\n", ctx->thread_pid,
+           ctx->child_pid);
+    if (ctx->child_pid < 1) {
+      fprintf(stderr, "safety net engaged, would have been bad!\n");
+    } else {
+      kill(ctx->child_pid, SIGKILL);
+    }
+    ctx->cancel_flag = 1;
+    while (ctx->cancel_flag) {
+      uv_sleep(100);
+    }
+  }
+  uv_work_t *req = malloc(sizeof(uv_work_t));
+  req->data = ctx;
+  ctx->req = req;
+  ctx->dir = (char *)handle->data;
+  ctx->child_pid = -1;
+  ctx->cancel_flag = 0;
+
+  uv_queue_work(uv_loop, req, work_fn, after_work_cb);
 }
 
 static void on_src_debounce_timer(uv_timer_t *handle) {
@@ -169,12 +251,19 @@ static void program_start(uv_timer_t *timer) {
   uv_timer_stop(timer);
   uv_close((uv_handle_t *)timer, NULL);
   printf("program_start!\n");
+  // TODO trigger callbacks
 }
 
 static void program_end(uv_timer_t *timer) {
   uv_timer_stop(timer);
   uv_close((uv_handle_t *)timer, NULL);
-  printf("program_end!\n");
+
+  if (ctx->req && ctx->child_pid > 1) {
+    ctx->cancel_flag = 1;
+    // kill(ctx->child_pid, SIGCHLD);
+    usleep(100000);
+    // kill(ctx->child_pid, SIGKILL);
+  }
 }
 
 static void on_walk_cleanup(uv_handle_t *handle, void *data) {
@@ -184,7 +273,6 @@ static void on_walk_cleanup(uv_handle_t *handle, void *data) {
 }
 
 static void on_close() {
-  printf("Closing\n");
   uv_timer_start(program_end_timer, program_end, 0, 0);
   uv_run(uv_loop, UV_RUN_ONCE);
   uv_stop(uv_loop);
@@ -329,19 +417,8 @@ int main(int argc, char **argv) {
 
   if (fileCount == 0) {
     printf("No solutions found. Go solve some!\n");
-    // exit(0);
+    exit(1);
   }
-  // tasks
-  // - watch main.c, input.txt, example.txt for changes
-  // - if changes occur, it should trigger rebuild
-  // - it should re-run the file on build
-  // - it should build and run at startup
-  // - it should output runtime information after each execution (time, mem
-  // usage etc)
-  // - it should output red/green depending on statuscode
-  //
-  //
-  //
 
   globfree(&files);
   uv_loop = uv_default_loop();
@@ -381,6 +458,8 @@ int main(int argc, char **argv) {
   status = uv_timer_init(uv_loop, exe_debounce_timer);
   UV_CHECK(status, "exe_debounce_timer timer_init");
 
-  printf("Ready!\n");
+  ctx = malloc(sizeof(exe_context_t));
+  *ctx = (exe_context_t){.req = NULL, .child_pid = -1, .cancel_flag = 0};
+
   return uv_run(uv_loop, UV_RUN_DEFAULT);
 }

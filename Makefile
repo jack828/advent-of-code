@@ -13,7 +13,6 @@ $(TARGET): $(TARGET).c
 mon: mon.c
 	$(CC) $(TARGET).c $(CFLAGS) -o $(TARGET) $(LINKFLAGS) $(DEBUGFLAGS)
 
-
 debug: $(TARGET)
 	$(CC) $(TARGET).c $(CFLAGS) -o $(TARGET).debug $(LINKFLAGS) $(DEBUGFLAGS)
 

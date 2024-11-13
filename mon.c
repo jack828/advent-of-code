@@ -192,8 +192,12 @@ static void on_exe_debounce_timer(uv_timer_t *handle) {
       kill(ctx->child_pid, SIGKILL);
     }
     ctx->cancel_flag = 1;
-    while (ctx->cancel_flag) {
-      uv_sleep(100);
+    int status;
+    pid_t pid = waitpid(ctx->child_pid, &status, 0);
+    if (pid == -1) {
+      perror("waitpid");
+    } else {
+      printf("Child process %d terminated with status %d\n", pid, status);
     }
   }
   uv_work_t *req = malloc(sizeof(uv_work_t));

@@ -46,9 +46,10 @@ static uv_fs_event_t *fs_watcher = NULL;
 static uv_timer_t *program_start_timer = NULL;
 static uv_timer_t *program_end_timer = NULL;
 static uv_timer_t *src_debounce_timer = NULL;
-size_t src_directory_length = 1024;
 static uv_timer_t *exe_debounce_timer = NULL;
 static const uint64_t DEBOUNCE_TIMEOUT_MS = 150;
+#define SRC_DIRECTORY_LENGTH 1024
+char src_directory[SRC_DIRECTORY_LENGTH] = {0};
 
 typedef struct exe_context_t exe_context_t;
 
@@ -103,8 +104,8 @@ void work_fn(uv_work_t *req) {
   context->thread_pid = tid;
   context->child_pid = fork();
 
-  char target_path[src_directory_length];
-  sprintf(target_path, "%smain.out", context->dir);
+  char target_path[SRC_DIRECTORY_LENGTH + 8] = {0};
+  sprintf(target_path, "%smain.out", src_directory);
   struct timeval start, end;
   struct rusage usage;
   gettimeofday(&start, NULL);
@@ -198,7 +199,6 @@ static void on_exe_debounce_timer(uv_timer_t *handle) {
   uv_work_t *req = malloc(sizeof(uv_work_t));
   req->data = ctx;
   ctx->req = req;
-  ctx->dir = (char *)handle->data;
   ctx->child_pid = -1;
   ctx->cancel_flag = 0;
 
@@ -233,7 +233,7 @@ static void on_src_debounce_timer(uv_timer_t *handle) {
                   NULL};
   options.file = args[0];
   options.args = args;
-  options.cwd = (char *)handle->data;
+  options.cwd = src_directory;
   options.stdio_count = 3;
   uv_stdio_container_t child_stdio[3];
   child_stdio[0].flags = UV_IGNORE;     // stdin
@@ -250,7 +250,7 @@ static void on_src_debounce_timer(uv_timer_t *handle) {
 static void program_start(uv_timer_t *timer) {
   uv_timer_stop(timer);
   uv_close((uv_handle_t *)timer, NULL);
-  printf("program_start!\n");
+  printf("Ready!\n");
   // TODO trigger callbacks
 }
 
@@ -258,8 +258,13 @@ static void program_end(uv_timer_t *timer) {
   uv_timer_stop(timer);
   uv_close((uv_handle_t *)timer, NULL);
 
-  if (ctx->req && ctx->child_pid > 1) {
+  if (ctx->req) {
     ctx->cancel_flag = 1;
+    if (ctx->child_pid < 1) {
+      fprintf(stderr, "safety net engaged, would have been bad!\n");
+    } else {
+      kill(ctx->child_pid, SIGKILL);
+    }
     // kill(ctx->child_pid, SIGCHLD);
     usleep(100000);
     // kill(ctx->child_pid, SIGKILL);
@@ -285,9 +290,7 @@ static void on_close() {
   }
   free(program_start_timer);
   free(program_end_timer);
-  free(src_debounce_timer->data);
   free(src_debounce_timer);
-  free(exe_debounce_timer->data);
   free(exe_debounce_timer);
   free(fs_watcher);
 }
@@ -314,8 +317,6 @@ static void on_fs_event(uv_fs_event_t *handle, const char *filename, int events,
   }
   if (strcmp(filename, "example.txt") == 0 ||
       strcmp(filename, "input.txt") == 0 || strcmp(filename, "main.c") == 0) {
-    uv_fs_event_getpath(handle, src_debounce_timer->data,
-                        &src_directory_length);
     // i get multiple calls per write, wait for it to settle
     uv_timer_stop(src_debounce_timer);
     uv_timer_start(src_debounce_timer, on_src_debounce_timer,
@@ -323,8 +324,6 @@ static void on_fs_event(uv_fs_event_t *handle, const char *filename, int events,
   }
 
   if (strcmp(filename, "main.out") == 0) {
-    uv_fs_event_getpath(handle, exe_debounce_timer->data,
-                        &src_directory_length);
     // i get MANY MANY calls per compile, wait for it to settle
     uv_timer_stop(exe_debounce_timer);
     uv_timer_start(exe_debounce_timer, on_exe_debounce_timer,
@@ -398,8 +397,7 @@ int main(int argc, char **argv) {
 
   printf("Running: %s Day %s\n", arguments.year, arguments.day);
 
-  // please don't make your paths this long...
-  char path[8192] = {0};
+  char path[SRC_DIRECTORY_LENGTH] = {0};
   strcat(path, arguments.path);
   strcat(path, arguments.year);
   strcat(path, "/");
@@ -408,6 +406,7 @@ int main(int argc, char **argv) {
   }
   strcat(path, arguments.day);
   strcat(path, "/");
+  sprintf(src_directory, "%s", path);
 
   glob_t files;
   glob(path, 0, NULL, &files);
@@ -449,12 +448,10 @@ int main(int argc, char **argv) {
   UV_CHECK(status, "program_end timer_init");
 
   src_debounce_timer = malloc(sizeof(uv_timer_t));
-  src_debounce_timer->data = calloc(src_directory_length, sizeof(char));
   status = uv_timer_init(uv_loop, src_debounce_timer);
   UV_CHECK(status, "src_debounce_timer timer_init");
 
   exe_debounce_timer = malloc(sizeof(uv_timer_t));
-  exe_debounce_timer->data = calloc(src_directory_length, sizeof(char));
   status = uv_timer_init(uv_loop, exe_debounce_timer);
   UV_CHECK(status, "exe_debounce_timer timer_init");
 

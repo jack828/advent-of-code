@@ -251,7 +251,7 @@ static void program_start(uv_timer_t *timer) {
   uv_timer_stop(timer);
   uv_close((uv_handle_t *)timer, NULL);
   printf("Ready!\n");
-  // TODO trigger callbacks
+  uv_timer_start(exe_debounce_timer, on_exe_debounce_timer, 0, 0);
 }
 
 static void program_end(uv_timer_t *timer) {

@@ -5,5 +5,5 @@ CFLAGS="-Wall -Wextra -Werror=pedantic -Wundef -Wshadow -Wformat=2 -Wfloat-equal
 ## USAGE
 # ./run 2022 7
 nodemon \
-  --exec "gcc $CFLAGS ./$1/$2/main.c -lm -o ./$1/$2/main.out && /usr/bin/time -f \"Time [h]:mm:ss %e\nMax memory %M KB\" ./$1/$2/main.out" \
+  --exec "gcc $CFLAGS ./$1/$2/main.c -lm -lpcre2-8 -o ./$1/$2/main.out && /usr/bin/time -f \"Time [h]:mm:ss %e\nMax memory %M KB\" ./$1/$2/main.out" \
   --watch ./$1/$2/main.c

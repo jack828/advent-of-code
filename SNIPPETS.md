@@ -240,3 +240,9 @@ Area of an irregular non-intersecting polygon.
 Also Pick's Theorem.
 
  - [2023 Day 18](2023/18/main.c)
+
+## Regex
+
+Not an algorithm but why add another category.
+
+ -  [2024 Day 3](2024/03/main.c) PCRE2
